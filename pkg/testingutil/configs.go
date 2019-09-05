@@ -9,8 +9,8 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"github.com/redhat-developer/odo-fork/pkg/preference"
 	"github.com/pkg/errors"
+	"github.com/redhat-developer/odo-fork/pkg/preference"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -39,7 +39,7 @@ func getConfFolder() (string, error) {
 		confLocation = currentUser.HomeDir
 	}
 
-	dir, err := ioutil.TempDir(confLocation, ".odo")
+	dir, err := ioutil.TempDir(confLocation, ".udo")
 	if err != nil {
 		return "", err
 	}

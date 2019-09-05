@@ -2,14 +2,15 @@ package util
 
 import (
 	"encoding/json"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/golang/glog"
 )
 
-const fileIndexDirectory = ".odo"
+const fileIndexDirectory = ".udo"
 const fileIndexName = "odo-file-index.json"
 
 type FileData struct {
@@ -42,7 +43,7 @@ func read(filePath string) (map[string]FileData, error) {
 	return fileReadMap, nil
 }
 
-// resolveFilePath resolves the filepath of the odo index file in the .odo folder
+// resolveFilePath resolves the filepath of the odo index file in the .udo folder
 func resolveFilePath(directory string) (string, error) {
 	directoryFi, err := os.Stat(filepath.Join(directory))
 	if err != nil {
@@ -63,9 +64,9 @@ func resolveFilePath(directory string) (string, error) {
 }
 
 // Run walks the given directory and finds the files which have changed and which were deleted/renamed
-// it reads the odo index file from the .odo folder
+// it reads the odo index file from the .udo folder
 // if no such file is present, it means it's the first time the folder is being walked and thus returns a empty list
-// after the walk, it stores the list of walked files with some information in a odo index file in the .odo folder
+// after the walk, it stores the list of walked files with some information in a odo index file in the .udo folder
 func Run(directory string, ignoreRules []string) (filesChanged []string, filesDeleted []string, err error) {
 	resolvedPath, err := resolveFilePath(directory)
 	if err != nil {
@@ -97,7 +98,7 @@ func Run(directory string, ignoreRules []string) (filesChanged []string, filesDe
 			}
 
 			if fi.Name() == fileIndexDirectory || fi.Name() == ".git" {
-				glog.V(4).Info(".odo or .git directory detected, skipping it")
+				glog.V(4).Info(".udo or .git directory detected, skipping it")
 				return filepath.SkipDir
 			}
 		}

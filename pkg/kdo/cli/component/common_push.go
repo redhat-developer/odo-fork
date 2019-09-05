@@ -149,7 +149,7 @@ func (cpo *CommonPushOptions) SetSourceInfo() (err error) {
 // 	appName := cpo.localConfigInfo.GetApplication()
 
 // 	if cpo.componentContext == "" {
-// 		cpo.componentContext = strings.Trim(filepath.Dir(cpo.localConfigInfo.Filename), ".odo")
+// 		cpo.componentContext = strings.Trim(filepath.Dir(cpo.localConfigInfo.Filename), ".udo")
 // 	}
 
 // 	cmpExists, err := cpo.createCmpIfNotExistsAndApplyCmpConfig(stdout)
@@ -186,7 +186,7 @@ func (cpo *CommonPushOptions) SetSourceInfo() (err error) {
 // 		}
 
 // 		if cmpExists {
-// 			// apply the glob rules from the .gitignore/.odo file
+// 			// apply the glob rules from the .gitignore/.udo file
 // 			// and ignore the files on which the rules apply and filter them out
 // 			filesChangedFiltered, filesDeletedFiltered := filterIgnores(filesChanged, filesDeleted, absIgnoreRules)
 

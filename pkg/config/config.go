@@ -114,7 +114,7 @@ func getLocalConfigFile(cfgDir string) (string, error) {
 		}
 	}
 
-	return filepath.Join(cfgDir, ".odo", configFileName), nil
+	return filepath.Join(cfgDir, ".udo", configFileName), nil
 }
 
 // New returns the localConfigInfo
@@ -631,8 +631,8 @@ func (lci *LocalConfigInfo) GetOSSourcePath() (path string, err error) {
 	sourceLocation := lci.GetSourceLocation()
 
 	// Get the component context folder
-	// ".odo" is removed as lci.Filename will always return the '.odo' folder.. we don't need that!
-	componentContext := strings.Trim(filepath.Dir(lci.Filename), ".odo")
+	// ".udo" is removed as lci.Filename will always return the '.udo' folder.. we don't need that!
+	componentContext := strings.Trim(filepath.Dir(lci.Filename), ".udo")
 
 	if sourceLocation == "" {
 		return "", fmt.Errorf("Blank source location provided")

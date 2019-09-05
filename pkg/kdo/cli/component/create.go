@@ -55,7 +55,7 @@ type CreateOptions struct {
 const CreateRecommendedCommandName = "create"
 
 // LocalDirectoryDefaultLocation is the default location of where --local files should always be..
-// since the application will always be in the same directory as `.odo`, we will always set this as: ./
+// since the application will always be in the same directory as `.udo`, we will always set this as: ./
 const LocalDirectoryDefaultLocation = "./"
 
 var createLongDesc = ktemplates.LongDesc(`Create a configuration describing a component to be deployed on OpenShift.
