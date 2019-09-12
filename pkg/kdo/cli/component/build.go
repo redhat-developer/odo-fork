@@ -44,8 +44,7 @@ func NewBuildIDPOptions() *BuildIDPOptions {
 
 // Complete completes BuildIDPOptions after they've been created
 func (o *BuildIDPOptions) Complete(name string, cmd *cobra.Command, args []string) (err error) {
-	fmt.Println("MJF Build inside Complete")
-	fmt.Println("MJF args: " + strings.Join(args, " "))
+	fmt.Println("Build arguments: " + strings.Join(args, " "))
 	o.Context = genericclioptions.NewContext(cmd)
 	o.buildTaskType = args[0]
 	o.projectName = args[1]
@@ -59,7 +58,6 @@ func (o *BuildIDPOptions) Complete(name string, cmd *cobra.Command, args []strin
 
 // Validate validates the ListIDPOptions based on completed values
 func (o *BuildIDPOptions) Validate() (err error) {
-	fmt.Println("MJF Build inside Validate")
 	if o.buildTaskType != "full" && o.buildTaskType != "inc" {
 		return fmt.Errorf("The first option should be either full or inc")
 	}
@@ -68,7 +66,6 @@ func (o *BuildIDPOptions) Validate() (err error) {
 
 // Run contains the logic for the command associated with ListIDPOptions
 func (o *BuildIDPOptions) Run() (err error) {
-	fmt.Println("MJF Build inside Run")
 	clientset := o.Context.Client.KubeClient
 	namespace := o.Context.Client.Namespace
 
