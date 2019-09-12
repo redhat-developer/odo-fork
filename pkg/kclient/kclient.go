@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	corev1Client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 )
@@ -81,10 +82,11 @@ Consult your Kubernetes distribution's documentation for more details
 
 // Client is a collection of fields used for client configuration and interaction
 type Client struct {
-	KubeClient   kubernetes.Interface
-	CoreV1Client corev1Client.CoreV1Interface
-	KubeConfig   clientcmd.ClientConfig
-	Namespace    string
+	KubeClient       kubernetes.Interface
+	CoreV1Client     corev1Client.CoreV1Interface
+	KubeConfig       clientcmd.ClientConfig
+	KubeClientConfig *rest.Config
+	Namespace        string
 }
 
 // New creates a new client
@@ -100,6 +102,7 @@ func New(skipConnectionCheck bool) (*Client, error) {
 	if err != nil {
 		return nil, errors.New(err.Error() + errorMsg)
 	}
+	client.KubeClientConfig = config
 
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {

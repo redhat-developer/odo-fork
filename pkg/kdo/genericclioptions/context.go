@@ -145,6 +145,10 @@ func getValidConfig(command *cobra.Command) (*config.LocalConfigInfo, error) {
 		if fcc.Name() == "app" {
 			return lci, nil
 		}
+		// Check if fcc is build
+		if fcc.Name() == "build" {
+			return lci, nil
+		}
 		// Case 5 : Check if fcc is catalog and request is to list
 		if fcc.Name() == "catalog" && p.Name() == "list" {
 			return lci, nil
