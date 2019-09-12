@@ -12,9 +12,6 @@ import (
 	ktemplates "k8s.io/kubectl/pkg/util/templates"
 
 	"github.com/spf13/cobra"
-
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // BuildRecommendedCommandName is the recommended catalog command name
@@ -66,7 +63,7 @@ func (o *BuildIDPOptions) Validate() (err error) {
 
 // Run contains the logic for the command associated with ListIDPOptions
 func (o *BuildIDPOptions) Run() (err error) {
-	clientset := o.Context.Client.KubeClient
+	// clientset := o.Context.Client.KubeClient
 	namespace := o.Context.Client.Namespace
 
 	fmt.Printf("Namespace: %s\n", namespace)
@@ -79,6 +76,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 	if o.reuseBuildContainer == true {
 		fmt.Println("Reusing the build container")
+		build.DeployReusableBuildContainer(o.Context.Client, "docker.io/maven:3.6")
 	}
 
 	buildTaskJobName := "codewind-liberty-build-job"
