@@ -1,4 +1,4 @@
-package component
+package build
 
 import (
 	"fmt"

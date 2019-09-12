@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/redhat-developer/odo-fork/pkg/component"
+	"github.com/redhat-developer/odo-fork/pkg/build"
 	"github.com/redhat-developer/odo-fork/pkg/kdo/genericclioptions"
 	ktemplates "k8s.io/kubectl/pkg/util/templates"
 
@@ -71,7 +71,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 	fmt.Printf("Namespace: %s\n", namespace)
 
-	idpClaimName := component.GetIDPPVC(o.Context.Client, namespace, "app=idp")
+	idpClaimName := build.GetIDPPVC(o.Context.Client, namespace, "app=idp")
 	fmt.Printf("Persistent Volume Claim: %s\n", idpClaimName)
 
 	serviceAccountName := "default"
@@ -83,7 +83,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 	buildTaskJobName := "codewind-liberty-build-job"
 
-	job, err := component.CreateBuildTaskKubeJob(buildTaskJobName, o.buildTaskType, namespace, idpClaimName, "projects/"+o.projectName, o.projectName)
+	job, err := build.CreateBuildTaskKubeJob(buildTaskJobName, o.buildTaskType, namespace, idpClaimName, "projects/"+o.projectName, o.projectName)
 	if err != nil {
 		fmt.Println("There was a problem with the job configuration, exiting...")
 		panic(err.Error())
@@ -184,7 +184,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 	}
 
 	// Create the Codewind deployment object
-	BuildTaskInstance := component.BuildTask{
+	BuildTaskInstance := build.BuildTask{
 		Name:               "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
 		Image:              "websphere-liberty:19.0.0.3-webProfile7",
 		Namespace:          namespace,
@@ -197,8 +197,8 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 	if o.buildTaskType == "full" {
 		// Deploy Application
-		deploy := component.CreateComponentDeploy(BuildTaskInstance, o.projectName)
-		service := component.CreateComponentService(BuildTaskInstance)
+		deploy := build.CreateComponentDeploy(BuildTaskInstance, o.projectName)
+		service := build.CreateComponentService(BuildTaskInstance)
 
 		fmt.Println("===============================")
 		fmt.Println("Deploying application...")
