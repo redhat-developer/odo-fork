@@ -9,8 +9,11 @@ import (
 
 //BuildTask is a struct of essential data
 type BuildTask struct {
+	Type               string
 	Name               string
 	Image              string
+	ContainerName      string
+	PodName            string
 	Namespace          string
 	WorkspaceID        string
 	PVCName            string
@@ -20,27 +23,22 @@ type BuildTask struct {
 	OwnerReferenceUID  types.UID
 	Privileged         bool
 	Ingress            string
+	MountPath          string
+	SubPath            string
 }
 
 // CreateComponentDeploy creates a Kubernetes deployment
-func CreateComponentDeploy(buildtask BuildTask, projectName string) appsv1.Deployment {
-	labels := map[string]string{
-		"chart":   "javamicroprofiletemplate-1.0.0",
-		"release": buildtask.Name,
-	}
+func CreateComponentDeploy(buildtask BuildTask, projectName string, labels map[string]string) appsv1.Deployment {
 
 	volumes, volumeMounts := setPFEVolumes(buildtask, projectName)
 	envVars := setPFEEnvVars(buildtask)
 
-	return generateDeployment(buildtask, "javamicroprofiletemplate", buildtask.Image, volumes, volumeMounts, envVars, labels)
+	return generateDeployment(buildtask, volumes, volumeMounts, envVars, labels)
 }
 
 // CreateComponentService creates a Kubernetes service for Codewind, exposing port 9191
-func CreateComponentService(buildtask BuildTask) corev1.Service {
-	labels := map[string]string{
-		"chart":   "javamicroprofiletemplate-1.0.0",
-		"release": buildtask.Name,
-	}
+func CreateComponentService(buildtask BuildTask, labels map[string]string) corev1.Service {
+
 	return generateService(buildtask, labels)
 }
 
@@ -62,8 +60,8 @@ func setPFEVolumes(buildtask BuildTask, projectName string) ([]corev1.Volume, []
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "idp-volume",
-			MountPath: "/config",
-			SubPath:   "projects/" + projectName + "/buildartifacts/",
+			MountPath: buildtask.MountPath,
+			SubPath:   buildtask.SubPath,
 		},
 	}
 
@@ -71,10 +69,10 @@ func setPFEVolumes(buildtask BuildTask, projectName string) ([]corev1.Volume, []
 }
 
 // setPFEEnvVars sets the env var for the component pod
-func setPFEEnvVars(buildTask BuildTask) []corev1.EnvVar {
+func setPFEEnvVars(buildtask BuildTask) []corev1.EnvVar {
 	booleanTrue := bool(true)
 
-	return []corev1.EnvVar{
+	envVars := []corev1.EnvVar{
 		{
 			Name:  "PORT",
 			Value: "9080",
@@ -156,19 +154,51 @@ func setPFEEnvVars(buildTask BuildTask) []corev1.EnvVar {
 			},
 		},
 	}
+
+	if buildtask.Type == "build" {
+		envVars = []corev1.EnvVar{}
+	}
+
+	return envVars
 }
 
 // generateDeployment returns a Kubernetes deployment object with the given name for the given image.
 // Additionally, volume/volumemounts and env vars can be specified.
-func generateDeployment(buildtask BuildTask, name string, image string, volumes []corev1.Volume, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar, labels map[string]string) appsv1.Deployment {
+func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar, labels map[string]string) appsv1.Deployment {
 	// blockOwnerDeletion := true
 	// controller := true
+	containerName := buildtask.ContainerName
+	image := buildtask.Image
 	replicas := int32(1)
-	labels2 := map[string]string{
-		"app":     "javamicroprofiletemplate-selector",
-		"version": "current",
-		"release": buildtask.Name,
+	container := []corev1.Container{
+		{
+			Name:            containerName,
+			Image:           image,
+			ImagePullPolicy: corev1.PullAlways,
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: &buildtask.Privileged,
+			},
+			VolumeMounts: volumeMounts,
+			Env:          envVars,
+		},
 	}
+	if buildtask.Type == "build" {
+		container = []corev1.Container{
+			{
+				Name:            containerName,
+				Image:           image,
+				ImagePullPolicy: corev1.PullAlways,
+				SecurityContext: &corev1.SecurityContext{
+					Privileged: &buildtask.Privileged,
+				},
+				VolumeMounts: volumeMounts,
+				Command:      []string{"tail"},
+				Args:         []string{"-f", "/dev/null"},
+				Env:          envVars,
+			},
+		}
+	}
+
 	deployment := appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -192,27 +222,16 @@ func generateDeployment(buildtask BuildTask, name string, image string, volumes 
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels2,
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels2,
+					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: buildtask.ServiceAccountName,
 					Volumes:            volumes,
-					Containers: []corev1.Container{
-						{
-							Name:            name,
-							Image:           image,
-							ImagePullPolicy: corev1.PullAlways,
-							SecurityContext: &corev1.SecurityContext{
-								Privileged: &buildtask.Privileged,
-							},
-							VolumeMounts: volumeMounts,
-							Env:          envVars,
-						},
-					},
+					Containers:         container,
 				},
 			},
 		},
@@ -228,6 +247,26 @@ func generateService(buildtask BuildTask, labels map[string]string) corev1.Servi
 
 	port1 := 9080
 	port2 := 9443
+
+	ports := []corev1.ServicePort{
+		{
+			Port: int32(port1),
+			Name: "http",
+		},
+		{
+			Port: int32(port2),
+			Name: "https",
+		},
+	}
+
+	if buildtask.Type == "build" {
+		ports = []corev1.ServicePort{
+			{
+				Port: int32(port1),
+				Name: "http",
+			},
+		}
+	}
 
 	service := corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -250,20 +289,9 @@ func generateService(buildtask BuildTask, labels map[string]string) corev1.Servi
 			// },
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeNodePort,
-			Ports: []corev1.ServicePort{
-				{
-					Port: int32(port1),
-					Name: "http",
-				},
-				{
-					Port: int32(port2),
-					Name: "https",
-				},
-			},
-			Selector: map[string]string{
-				"app": "javamicroprofiletemplate-selector",
-			},
+			Type:     corev1.ServiceTypeNodePort,
+			Ports:    ports,
+			Selector: labels,
 		},
 	}
 	return service

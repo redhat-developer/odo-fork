@@ -3,8 +3,6 @@ package build
 import (
 	"fmt"
 
-	"github.com/redhat-developer/odo-fork/pkg/component"
-	"github.com/redhat-developer/odo-fork/pkg/kclient"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,19 +65,4 @@ func CreateBuildTaskKubeJob(buildTaskJob string, taskName string, namespace stri
 	}
 
 	return job, nil
-}
-
-//DeployReusableBuildContainer deploy a reusable build container
-func DeployReusableBuildContainer(client *kclient.Client, imageName string) {
-
-	storageToBeMounted := make(map[string]*corev1.PersistentVolumeClaim)
-
-	createArgs := kclient.CreateArgs{
-		Name:               "reusable-build-container",
-		ImageName:          imageName,
-		ApplicationName:    "reusable-build-container",
-		StorageToBeMounted: storageToBeMounted,
-	}
-
-	component.CreateFromPath(client, createArgs)
 }

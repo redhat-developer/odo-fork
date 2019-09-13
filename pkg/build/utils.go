@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/redhat-developer/odo-fork/pkg/kclient"
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +36,8 @@ func GetIDPPVC(client *kclient.Client, namespace string, labels string) string {
 
 // ExecPodCmd executes command in the pod container
 func ExecPodCmd(client *kclient.Client, command []string, containerName, podName, namespace string) (string, string, error) {
+
+	fmt.Printf("Executing command: %s in pod: %s container: %s\n", strings.Join(command, " "), podName, containerName)
 
 	clientset := client.KubeClient
 	config := client.KubeClientConfig
@@ -78,4 +81,12 @@ func ExecPodCmd(client *kclient.Client, command []string, containerName, podName
 	}
 
 	return stdout.String(), stderr.String(), nil
+}
+
+// ListPods list the pods using the selector
+func ListPods(client *kclient.Client, namespace string, listOptions metav1.ListOptions) (*corev1.PodList, error) {
+	clientset := client.KubeClient
+	podList, err := clientset.CoreV1().Pods(namespace).List(listOptions)
+
+	return podList, err
 }
