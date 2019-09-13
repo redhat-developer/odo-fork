@@ -62,8 +62,6 @@ func ExecPodCmd(client *kclient.Client, command []string, containerName, podName
 		TTY:       false,
 	}, parameterCodec)
 
-	fmt.Println("Request URL:", req.URL().String())
-
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
 		panic(err)

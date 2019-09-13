@@ -184,7 +184,6 @@ func (o *BuildIDPOptions) Run() (err error) {
 		output, stderr, err := build.ExecPodCmd(o.Context.Client, command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName, namespace)
 		if len(stderr) != 0 {
 			fmt.Println("Resuable Build Container STDERR:", stderr)
-			os.Exit(1)
 		}
 		if err != nil {
 			fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), ReusableBuildContainerInstance.PodName, err)
@@ -192,6 +191,8 @@ func (o *BuildIDPOptions) Run() (err error) {
 		} else {
 			fmt.Printf("Reusable Build Container Output: \n%s\n", output)
 		}
+
+		fmt.Println("Finished executing the IDP Build Task in the Resuable Build Container...")
 	} else {
 		// Create a Kube Job for building
 		fmt.Println("Creating a Kube Job for building...")
