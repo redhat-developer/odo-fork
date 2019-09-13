@@ -12,13 +12,14 @@ import (
 func CreateBuildTaskKubeJob(buildTaskJob string, taskName string, namespace string, idpClaimName string, projectSubPath string, projectName string) (*batchv1.Job, error) {
 	fmt.Printf("Creating job %s\n", buildTaskJob)
 	// Create a Kube job to run mvn package for a Liberty project
-	command := "/data/idp/bin/build-container-full.sh"
+	command := []string{"/bin/sh", "-c"}
+	commandArgs := []string{"/data/idp/bin/build-container-full.sh"}
 
 	if taskName == "inc" {
-		command = "/data/idp/bin/build-container-update.sh"
+		commandArgs = []string{"/data/idp/bin/build-container-update.sh"}
 	}
 
-	fmt.Printf("Command: %s\n", command)
+	fmt.Printf("Command: %s %s\n", command, commandArgs)
 	backoffLimit := int32(1)
 	parallelism := int32(1)
 	job := &batchv1.Job{
@@ -44,8 +45,8 @@ func CreateBuildTaskKubeJob(buildTaskJob string, taskName string, namespace stri
 							Name:            "maven-build",
 							Image:           "docker.io/maven:3.6",
 							ImagePullPolicy: corev1.PullAlways,
-							Command:         []string{"/bin/sh", "-c"},
-							Args:            []string{command},
+							Command:         command,
+							Args:            commandArgs,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "idp-volume",
