@@ -9,13 +9,13 @@ import (
 )
 
 // CreateBuildTaskKubeJob creates a Kubernetes Job
-func CreateBuildTaskKubeJob(buildTaskJob string, taskName string, namespace string, idpClaimName string, projectSubPath string, projectName string) (*batchv1.Job, error) {
-	fmt.Printf("Creating job %s\n", buildTaskJob)
+func CreateBuildTaskKubeJob(buildTaskJobName string, buildTaskType string, namespace string, idpClaimName string, projectSubPath string, projectName string) (*batchv1.Job, error) {
+	fmt.Printf("Creating job %s\n", buildTaskJobName)
 	// Create a Kube job to run mvn package for a Liberty project
 	command := []string{"/bin/sh", "-c"}
 	commandArgs := []string{"/data/idp/bin/build-container-full.sh"}
 
-	if taskName == "inc" {
+	if buildTaskType == "inc" {
 		commandArgs = []string{"/data/idp/bin/build-container-update.sh"}
 	}
 
@@ -24,7 +24,7 @@ func CreateBuildTaskKubeJob(buildTaskJob string, taskName string, namespace stri
 	parallelism := int32(1)
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildTaskJob,
+			Name:      buildTaskJobName,
 			Namespace: namespace,
 		},
 		Spec: batchv1.JobSpec{

@@ -176,7 +176,11 @@ func (o *BuildIDPOptions) Run() (err error) {
 		fmt.Printf("The Resuable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
 
 		// Execute the Mvm command in the Build Container
-		command := []string{"/bin/sh", "-c", "hostname", "-f"}
+		command := []string{"/bin/sh", "-c", "/data/idp/bin/build-container-full.sh"}
+		if o.buildTaskType == "inc" {
+			command = []string{"/bin/sh", "-c", "/data/idp/bin/build-container-update.sh"}
+		}
+		// command := []string{"/bin/sh", "-c", "hostname", "-f"}
 		output, stderr, err := build.ExecPodCmd(o.Context.Client, command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName, namespace)
 		if len(stderr) != 0 {
 			fmt.Println("Resuable Build Container STDERR:", stderr)
