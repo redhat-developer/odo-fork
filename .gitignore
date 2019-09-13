@@ -1,0 +1,5 @@
+# IntelliJ IDE specific
+.idea
+
+# VSCode specific
+.vscode
