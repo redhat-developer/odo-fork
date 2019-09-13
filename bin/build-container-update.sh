@@ -10,7 +10,7 @@ ls -la /data/idp/src
 
 date
 echo copying /data/idp/src to /tmp/app
-cp -rf /data/idp/src /tmp/app
+cp -rf /data/idp/src/* /tmp/app
 
 date
 echo chown -fR 1001 /tmp/app and listing
