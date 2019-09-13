@@ -25,21 +25,22 @@ type BuildTask struct {
 	Ingress            string
 	MountPath          string
 	SubPath            string
+	Labels             map[string]string
 }
 
-// CreateComponentDeploy creates a Kubernetes deployment
-func CreateComponentDeploy(buildtask BuildTask, projectName string, labels map[string]string) appsv1.Deployment {
+// CreateDeploy creates a Kubernetes deployment
+func CreateDeploy(buildtask BuildTask, projectName string) appsv1.Deployment {
 
 	volumes, volumeMounts := setPFEVolumes(buildtask, projectName)
 	envVars := setPFEEnvVars(buildtask)
 
-	return generateDeployment(buildtask, volumes, volumeMounts, envVars, labels)
+	return generateDeployment(buildtask, volumes, volumeMounts, envVars)
 }
 
-// CreateComponentService creates a Kubernetes service for Codewind, exposing port 9191
-func CreateComponentService(buildtask BuildTask, labels map[string]string) corev1.Service {
+// CreateService creates a Kubernetes service for Codewind, exposing port 9191
+func CreateService(buildtask BuildTask) corev1.Service {
 
-	return generateService(buildtask, labels)
+	return generateService(buildtask)
 }
 
 // setPFEVolumes returns the 3 volumes & corresponding volume mounts required by the PFE container:
@@ -164,11 +165,12 @@ func setPFEEnvVars(buildtask BuildTask) []corev1.EnvVar {
 
 // generateDeployment returns a Kubernetes deployment object with the given name for the given image.
 // Additionally, volume/volumemounts and env vars can be specified.
-func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar, labels map[string]string) appsv1.Deployment {
+func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar) appsv1.Deployment {
 	// blockOwnerDeletion := true
 	// controller := true
 	containerName := buildtask.ContainerName
 	image := buildtask.Image
+	labels := buildtask.Labels
 	replicas := int32(1)
 	container := []corev1.Container{
 		{
@@ -241,12 +243,14 @@ func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMoun
 
 // generateService returns a Kubernetes service object with the given name, exposed over the specified port
 // for the container with the given labels.
-func generateService(buildtask BuildTask, labels map[string]string) corev1.Service {
+func generateService(buildtask BuildTask) corev1.Service {
 	// blockOwnerDeletion := true
 	// controller := true
 
 	port1 := 9080
 	port2 := 9443
+
+	labels := buildtask.Labels
 
 	ports := []corev1.ServicePort{
 		{

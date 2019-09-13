@@ -80,6 +80,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 	if o.reuseBuildContainer == true {
 		// Create a Build Container for re-use
 		fmt.Println("Reusing the build container...")
+
 		// Create the Reusable Build Container deployment object
 		ReusableBuildContainerInstance := build.BuildTask{
 			Type:               "build",
@@ -95,38 +96,18 @@ func (o *BuildIDPOptions) Run() (err error) {
 			MountPath:  "/data/idp/",
 			SubPath:    "projects/" + o.projectName,
 		}
-		labels := map[string]string{
+		ReusableBuildContainerInstance.Labels = map[string]string{
 			"app": ReusableBuildContainerInstance.Name,
 		}
 
-		reusableBuildContainerDeploy := build.CreateComponentDeploy(ReusableBuildContainerInstance, o.projectName, labels)
-		reusableBuildContainerService := build.CreateComponentService(ReusableBuildContainerInstance, labels)
-
-		fmt.Println("===============================")
-		fmt.Println("Deploying reusable build container...")
-		_, err = clientset.CoreV1().Services(namespace).Create(&reusableBuildContainerService)
-		if err != nil {
-			fmt.Printf("Unable to create application service: %v\n", err)
-			os.Exit(1)
-		} else {
-			fmt.Println("The service has been created.")
-		}
-		_, err = clientset.AppsV1().Deployments(namespace).Create(&reusableBuildContainerDeploy)
-		if err != nil {
-			fmt.Printf("Unable to create application deployment: %v\n", err)
-			os.Exit(1)
-		} else {
-			fmt.Println("The deployment has been created.")
-		}
-		fmt.Println("===============================")
-
-		// Wait for pods to start running so that we can tail the logs
-		fmt.Printf("Waiting for pod to run\n")
-		foundRunningPod := false
-		// reusableBuildContainerPodName := ""
-		for foundRunningPod == false {
+		// Check if the Resusable Build Container has already been deployed
+		// Check if the pod is running and grab the pod name
+		fmt.Printf("Checking if Resusable Build Container has already been deployed...\n")
+		foundReusableBuildContainer := false
+		podCheckCounter := 0
+		for foundReusableBuildContainer == false {
 			listOptions := metav1.ListOptions{
-				LabelSelector: "app=proja-reusable-build-container",
+				LabelSelector: "app=" + ReusableBuildContainerInstance.Name,
 				FieldSelector: "status.phase=Running",
 			}
 			podList, err := build.ListPods(o.Context.Client, namespace, listOptions)
@@ -138,9 +119,60 @@ func (o *BuildIDPOptions) Run() (err error) {
 			for _, pod := range podList.Items {
 				fmt.Printf("Running pod found: %s...\n\n", pod.Name)
 				ReusableBuildContainerInstance.PodName = pod.Name
-				foundRunningPod = true
+				foundReusableBuildContainer = true
+			}
+
+			podCheckCounter++
+			// Check for the pod 3 times and break if not found
+			if podCheckCounter == 3 {
+				break
 			}
 		}
+
+		if !foundReusableBuildContainer {
+			reusableBuildContainerDeploy := build.CreateDeploy(ReusableBuildContainerInstance, o.projectName)
+			reusableBuildContainerService := build.CreateService(ReusableBuildContainerInstance)
+
+			fmt.Println("===============================")
+			fmt.Println("Deploying reusable build container...")
+			_, err = clientset.CoreV1().Services(namespace).Create(&reusableBuildContainerService)
+			if err != nil {
+				fmt.Printf("Unable to create application service: %v\n", err)
+				os.Exit(1)
+			} else {
+				fmt.Println("The service has been created.")
+			}
+			_, err = clientset.AppsV1().Deployments(namespace).Create(&reusableBuildContainerDeploy)
+			if err != nil {
+				fmt.Printf("Unable to create application deployment: %v\n", err)
+				os.Exit(1)
+			} else {
+				fmt.Println("The deployment has been created.")
+			}
+			fmt.Println("===============================")
+
+			// Wait for pods to start and grab the pod name
+			fmt.Printf("Waiting for pod to run\n")
+			foundRunningPod := false
+			for foundRunningPod == false {
+				listOptions := metav1.ListOptions{
+					LabelSelector: "app=" + ReusableBuildContainerInstance.Name,
+					FieldSelector: "status.phase=Running",
+				}
+				podList, err := build.ListPods(o.Context.Client, namespace, listOptions)
+
+				if err != nil {
+					continue
+				}
+
+				for _, pod := range podList.Items {
+					fmt.Printf("Running pod found: %s...\n\n", pod.Name)
+					ReusableBuildContainerInstance.PodName = pod.Name
+					foundRunningPod = true
+				}
+			}
+		}
+
 		fmt.Printf("The Resuable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
 
 		// Execute the Mvm command in the Build Container
@@ -284,15 +316,15 @@ func (o *BuildIDPOptions) Run() (err error) {
 			SubPath:    "projects/" + o.projectName + "/buildartifacts/",
 		}
 
-		labels := map[string]string{
+		BuildTaskInstance.Labels = map[string]string{
 			"app":     "javamicroprofiletemplate-selector",
 			"chart":   "javamicroprofiletemplate-1.0.0",
 			"release": BuildTaskInstance.Name,
 		}
 
 		// Deploy Application
-		deploy := build.CreateComponentDeploy(BuildTaskInstance, o.projectName, labels)
-		service := build.CreateComponentService(BuildTaskInstance, labels)
+		deploy := build.CreateDeploy(BuildTaskInstance, o.projectName)
+		service := build.CreateService(BuildTaskInstance)
 
 		fmt.Println("===============================")
 		fmt.Println("Deploying application...")
