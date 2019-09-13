@@ -12,10 +12,10 @@ import (
 func CreateBuildTaskKubeJob(buildTaskJob string, taskName string, namespace string, idpClaimName string, projectSubPath string, projectName string) (*batchv1.Job, error) {
 	fmt.Printf("Creating job %s\n", buildTaskJob)
 	// Create a Kube job to run mvn package for a Liberty project
-	command := "/data/idp/scripts/build-container-full.sh"
+	command := "/data/idp/bin/build-container-full.sh"
 
 	if taskName == "inc" {
-		command = "/data/idp/scripts/build-container-update.sh"
+		command = "/data/idp/bin/build-container-update.sh"
 	}
 
 	fmt.Printf("Command: %s\n", command)
