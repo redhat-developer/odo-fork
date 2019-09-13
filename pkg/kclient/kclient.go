@@ -589,6 +589,23 @@ func (c *Client) WaitAndGetPod(selector string, desiredPhase corev1.PodPhase, wa
 	}
 }
 
+// GetPodLogs streams the specified pod's logs to the specified output stream
+func (c *Client) GetPodLogs(pod *corev1.Pod, file *os.File) (err error) {
+	fmt.Printf("Retrieving job logs for pod: %s\n\n", pod.Name)
+	req := c.KubeClient.CoreV1().Pods(c.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
+		Follow: true,
+	})
+	readCloser, err := req.Stream()
+	defer readCloser.Close()
+	if err != nil {
+		fmt.Printf("Unable to retrieve job logs for pod: %s\n", pod.Name)
+		return
+	}
+
+	_, err = io.Copy(file, readCloser)
+	return err
+}
+
 // WaitAndGetSecret blocks and waits until the secret is available
 func (c *Client) WaitAndGetSecret(name string, namespace string) (*corev1.Secret, error) {
 	glog.V(4).Infof("Waiting for secret %s to become available", name)

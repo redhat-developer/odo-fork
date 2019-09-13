@@ -1,8 +1,8 @@
 package component
 
 import (
+	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -98,46 +98,19 @@ func (o *BuildIDPOptions) Run() (err error) {
 	fmt.Printf("The job %s has been created\n", kubeJob.Name)
 
 	// Wait for pods to start running so that we can tail the logs
-	fmt.Printf("Waiting for pod to run\n")
-	foundRunningPod := false
-	for foundRunningPod == false {
-
-		podList, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{
-			LabelSelector: "job-name=codewind-liberty-build-job",
-			FieldSelector: "status.phase=Running",
-		})
-
-		if err != nil {
-			continue
-		}
-
-		for _, pod := range podList.Items {
-			fmt.Printf("Running pod found: %s Retrieving logs...\n\n", pod.Name)
-			foundRunningPod = true
-		}
+	po, err := o.Context.Client.WaitAndGetPod("job-name=codewind-liberty-build-job", corev1.PodRunning, "Waiting for the build job to run")
+	if err != nil {
+		err = errors.New("The build job failed to run")
+		return
 	}
 
-	// Print logs before deleting the job
-	podList, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{
-		LabelSelector: "job-name=codewind-liberty-build-job",
-	})
-
-	for _, pod := range podList.Items {
-		fmt.Printf("Retrieving logs for pod: %s\n\n", pod.Name)
-		req := clientset.CoreV1().Pods(namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
-			Follow: true,
-		})
-		readCloser, err := req.Stream()
-		if err != nil {
-			fmt.Printf("Unable to retrieve logs for pod: %s\n", pod.Name)
-			continue
-		}
-
-		defer readCloser.Close()
-		_, err = io.Copy(os.Stdout, readCloser)
+	err = o.Context.Client.GetPodLogs(po, os.Stdout)
+	if err != nil {
+		err = errors.New("Failed to get the logs for the build job")
+		return
 	}
 
-	// TODO: Set owner references
+	// TODO-KDO: Set owner references
 	var jobSucceeded bool
 	// Loop and see if the job either succeeded or failed
 	loop := true
