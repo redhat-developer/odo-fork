@@ -2,11 +2,11 @@ package component
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/redhat-developer/odo-fork/pkg/build"
 	"github.com/redhat-developer/odo-fork/pkg/kdo/genericclioptions"
 	ktemplates "k8s.io/kubectl/pkg/util/templates"
@@ -78,12 +78,11 @@ func (o *BuildIDPOptions) Run() (err error) {
 	fmt.Printf("Service Account: %s\n", serviceAccountName)
 
 	if o.reuseBuildContainer == true {
-		// Create a Build Container for re-use
-		fmt.Println("Reusing the build container...")
+		// Create a Build Container for re-use if not present
 
 		// Create the Reusable Build Container deployment object
 		ReusableBuildContainerInstance := build.BuildTask{
-			Type:               "build",
+			Kind:               build.ReusableBuildContainer,
 			Name:               strings.ToLower(o.projectName) + "-reusable-build-container",
 			Image:              "docker.io/maven:3.6",
 			ContainerName:      "maven-build",
@@ -100,38 +99,25 @@ func (o *BuildIDPOptions) Run() (err error) {
 			"app": ReusableBuildContainerInstance.Name,
 		}
 
-		// Check if the Resusable Build Container has already been deployed
+		// Check if the Reusable Build Container has already been deployed
 		// Check if the pod is running and grab the pod name
-		fmt.Printf("Checking if Resusable Build Container has already been deployed...\n")
+		fmt.Printf("Checking if Reusable Build Container has already been deployed...\n")
 		foundReusableBuildContainer := false
-		podCheckCounter := 0
-		for foundReusableBuildContainer == false {
-			listOptions := metav1.ListOptions{
-				LabelSelector: "app=" + ReusableBuildContainerInstance.Name,
-				FieldSelector: "status.phase=Running",
-			}
-			podList, err := build.ListPods(o.Context.Client, namespace, listOptions)
-
-			if err != nil {
-				continue
-			}
-
-			for _, pod := range podList.Items {
-				fmt.Printf("Running pod found: %s...\n\n", pod.Name)
-				ReusableBuildContainerInstance.PodName = pod.Name
-				foundReusableBuildContainer = true
-			}
-
-			podCheckCounter++
-			// Check for the pod 3 times and break if not found
-			if podCheckCounter == 3 {
-				break
-			}
+		timeout := int64(10)
+		watchOptions := metav1.ListOptions{
+			LabelSelector:  "app=" + ReusableBuildContainerInstance.Name,
+			TimeoutSeconds: &timeout,
+		}
+		po, _ := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Reusable Container is up...")
+		if po != nil {
+			fmt.Printf("Running pod found: %s...\n\n", po.Name)
+			ReusableBuildContainerInstance.PodName = po.Name
+			foundReusableBuildContainer = true
 		}
 
 		if !foundReusableBuildContainer {
-			reusableBuildContainerDeploy := build.CreateDeploy(ReusableBuildContainerInstance, o.projectName)
-			reusableBuildContainerService := build.CreateService(ReusableBuildContainerInstance)
+			reusableBuildContainerDeploy := ReusableBuildContainerInstance.CreateDeploy()
+			reusableBuildContainerService := ReusableBuildContainerInstance.CreateService()
 
 			fmt.Println("===============================")
 			fmt.Println("Deploying reusable build container...")
@@ -153,37 +139,29 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 			// Wait for pods to start and grab the pod name
 			fmt.Printf("Waiting for pod to run\n")
-			foundRunningPod := false
-			for foundRunningPod == false {
-				listOptions := metav1.ListOptions{
-					LabelSelector: "app=" + ReusableBuildContainerInstance.Name,
-					FieldSelector: "status.phase=Running",
-				}
-				podList, err := build.ListPods(o.Context.Client, namespace, listOptions)
-
-				if err != nil {
-					continue
-				}
-
-				for _, pod := range podList.Items {
-					fmt.Printf("Running pod found: %s...\n\n", pod.Name)
-					ReusableBuildContainerInstance.PodName = pod.Name
-					foundRunningPod = true
-				}
+			watchOptions := metav1.ListOptions{
+				LabelSelector: "app=" + ReusableBuildContainerInstance.Name,
 			}
+			po, err := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Reusable Build Container to run")
+			if err != nil {
+				err = errors.New("The Reusable Build Container failed to run")
+				return err
+			}
+
+			ReusableBuildContainerInstance.PodName = po.Name
 		}
 
-		fmt.Printf("The Resuable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
+		fmt.Printf("The Reusable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
 
 		// Execute the Mvm command in the Build Container
-		command := []string{"/bin/sh", "-c", "/data/idp/bin/build-container-full.sh"}
+		command := []string{"/bin/sh", "-c", build.FullBuildTask}
 		if o.buildTaskType == "inc" {
-			command = []string{"/bin/sh", "-c", "/data/idp/bin/build-container-update.sh"}
+			command = []string{"/bin/sh", "-c", build.IncrementalBuildTask}
 		}
 		// command := []string{"/bin/sh", "-c", "hostname", "-f"}
-		output, stderr, err := build.ExecPodCmd(o.Context.Client, command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName, namespace)
+		output, stderr, err := o.Context.Client.ExecPodCmd(command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName)
 		if len(stderr) != 0 {
-			fmt.Println("Resuable Build Container STDERR:", stderr)
+			fmt.Println("Reusable Build Container stderr: ", stderr)
 		}
 		if err != nil {
 			fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), ReusableBuildContainerInstance.PodName, err)
@@ -192,7 +170,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 			fmt.Printf("Reusable Build Container Output: \n%s\n", output)
 		}
 
-		fmt.Println("Finished executing the IDP Build Task in the Resuable Build Container...")
+		fmt.Println("Finished executing the IDP Build Task in the Reusable Build Container...")
 	} else {
 		// Create a Kube Job for building
 		fmt.Println("Creating a Kube Job for building...")
@@ -212,49 +190,23 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 
 		fmt.Printf("The job %s has been created\n", kubeJob.Name)
-
-		// Wait for pods to start running so that we can tail the logs
-		fmt.Printf("Waiting for pod to run\n")
-		foundRunningPod := false
-		for foundRunningPod == false {
-			listOptions := metav1.ListOptions{
-				LabelSelector: "job-name=codewind-liberty-build-job",
-				FieldSelector: "status.phase=Running",
-			}
-			podList, err := build.ListPods(o.Context.Client, namespace, listOptions)
-
-			if err != nil {
-				continue
-			}
-
-			for _, pod := range podList.Items {
-				fmt.Printf("Running pod found: %s Retrieving logs...\n\n", pod.Name)
-				foundRunningPod = true
-			}
-		}
-
-		// Print logs before deleting the job
-		listOptions := metav1.ListOptions{
+		watchOptions := metav1.ListOptions{
 			LabelSelector: "job-name=codewind-liberty-build-job",
 		}
-		podList, err := build.ListPods(o.Context.Client, namespace, listOptions)
-
-		for _, pod := range podList.Items {
-			fmt.Printf("Retrieving logs for pod: %s\n\n", pod.Name)
-			req := clientset.CoreV1().Pods(namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
-				Follow: true,
-			})
-			readCloser, err := req.Stream()
-			if err != nil {
-				fmt.Printf("Unable to retrieve logs for pod: %s\n", pod.Name)
-				continue
-			}
-
-			defer readCloser.Close()
-			_, err = io.Copy(os.Stdout, readCloser)
+		// Wait for pods to start running so that we can tail the logs
+		po, err := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the build job to run")
+		if err != nil {
+			err = errors.New("The build job failed to run")
+			return err
 		}
 
-		// TODO: Set owner references
+		err = o.Context.Client.GetPodLogs(po, os.Stdout)
+		if err != nil {
+			err = errors.New("Failed to get the logs for the build job")
+			return err
+		}
+
+		// TODO-KDO: Set owner references
 		var jobSucceeded bool
 		// Loop and see if the job either succeeded or failed
 		loop := true
@@ -307,7 +259,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 		// Create the Codewind deployment object
 		BuildTaskInstance := build.BuildTask{
-			Type:               "component",
+			Kind:               build.Component,
 			Name:               "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
 			Image:              "websphere-liberty:19.0.0.3-webProfile7",
 			ContainerName:      "libertyproject",
@@ -328,8 +280,8 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 
 		// Deploy Application
-		deploy := build.CreateDeploy(BuildTaskInstance, o.projectName)
-		service := build.CreateService(BuildTaskInstance)
+		deploy := BuildTaskInstance.CreateDeploy()
+		service := BuildTaskInstance.CreateService()
 
 		fmt.Println("===============================")
 		fmt.Println("Deploying application...")

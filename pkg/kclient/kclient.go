@@ -2,6 +2,7 @@ package kclient
 
 import (
 	taro "archive/tar"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	appsv1Client "k8s.io/client-go/kubernetes/typed/apps/v1"
@@ -534,14 +536,12 @@ func updateEnvVar(deployment *appsv1.Deployment, envVars []corev1.EnvVar) error 
 
 // WaitAndGetPod block and waits until pod matching selector is in in Running state
 // desiredPhase cannot be PodFailed or PodUnknown
-func (c *Client) WaitAndGetPod(selector string, desiredPhase corev1.PodPhase, waitMessage string) (*corev1.Pod, error) {
-	glog.V(4).Infof("Waiting for %s pod", selector)
+func (c *Client) WaitAndGetPod(watchOptions metav1.ListOptions, desiredPhase corev1.PodPhase, waitMessage string) (*corev1.Pod, error) {
+	glog.V(4).Infof("Waiting for %s pod", watchOptions.LabelSelector)
 	s := log.Spinner(waitMessage)
 	defer s.End(false)
 
-	w, err := c.KubeClient.CoreV1().Pods(c.Namespace).Watch(metav1.ListOptions{
-		LabelSelector: selector,
-	})
+	w, err := c.KubeClient.CoreV1().Pods(c.Namespace).Watch(watchOptions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to watch pod")
 	}
@@ -585,7 +585,7 @@ func (c *Client) WaitAndGetPod(selector string, desiredPhase corev1.PodPhase, wa
 	case err := <-watchErrorChannel:
 		return nil, err
 	case <-time.After(waitForPodTimeOut):
-		return nil, errors.Errorf("waited %s but couldn't find running pod matching selector: '%s'", waitForPodTimeOut, selector)
+		return nil, errors.Errorf("waited %s but couldn't find running pod matching selector: '%s'", waitForPodTimeOut, watchOptions.LabelSelector)
 	}
 }
 
@@ -604,6 +604,54 @@ func (c *Client) GetPodLogs(pod *corev1.Pod, file *os.File) (err error) {
 
 	_, err = io.Copy(file, readCloser)
 	return err
+}
+
+// ExecPodCmd executes command in the pod container
+func (c *Client) ExecPodCmd(command []string, containerName, podName string) (string, string, error) {
+
+	fmt.Printf("Executing command: %s in pod: %s container: %s\n", strings.Join(command, " "), podName, containerName)
+
+	clientset := c.KubeClient
+	config := c.KubeClientConfig
+	namespace := c.Namespace
+
+	req := clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec")
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		panic(err)
+	}
+
+	parameterCodec := runtime.NewParameterCodec(scheme)
+	req.VersionedParams(&corev1.PodExecOptions{
+		Command:   command,
+		Container: containerName,
+		Stdin:     false,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
+	}, parameterCodec)
+
+	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		panic(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  nil,
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return stdout.String(), stderr.String(), nil
 }
 
 // WaitAndGetSecret blocks and waits until the secret is available

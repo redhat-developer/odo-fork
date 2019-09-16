@@ -9,7 +9,7 @@ import (
 
 //BuildTask is a struct of essential data
 type BuildTask struct {
-	Type               string
+	Kind               string
 	Name               string
 	Image              string
 	ContainerName      string
@@ -29,30 +29,30 @@ type BuildTask struct {
 }
 
 // CreateDeploy creates a Kubernetes deployment
-func CreateDeploy(buildtask BuildTask, projectName string) appsv1.Deployment {
+func (b *BuildTask) CreateDeploy() appsv1.Deployment {
 
-	volumes, volumeMounts := setPFEVolumes(buildtask, projectName)
-	envVars := setPFEEnvVars(buildtask)
+	volumes, volumeMounts := b.setPFEVolumes()
+	envVars := b.setPFEEnvVars()
 
-	return generateDeployment(buildtask, volumes, volumeMounts, envVars)
+	return b.generateDeployment(volumes, volumeMounts, envVars)
 }
 
 // CreateService creates a Kubernetes service for Codewind, exposing port 9191
-func CreateService(buildtask BuildTask) corev1.Service {
+func (b *BuildTask) CreateService() corev1.Service {
 
-	return generateService(buildtask)
+	return b.generateService()
 }
 
 // setPFEVolumes returns the 3 volumes & corresponding volume mounts required by the PFE container:
 // project workspace, buildah volume, and the docker registry secret (the latter of which is optional)
-func setPFEVolumes(buildtask BuildTask, projectName string) ([]corev1.Volume, []corev1.VolumeMount) {
+func (b *BuildTask) setPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 
 	volumes := []corev1.Volume{
 		{
 			Name: "idp-volume",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: buildtask.PVCName,
+					ClaimName: b.PVCName,
 				},
 			},
 		},
@@ -61,8 +61,8 @@ func setPFEVolumes(buildtask BuildTask, projectName string) ([]corev1.Volume, []
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "idp-volume",
-			MountPath: buildtask.MountPath,
-			SubPath:   buildtask.SubPath,
+			MountPath: b.MountPath,
+			SubPath:   b.SubPath,
 		},
 	}
 
@@ -70,7 +70,7 @@ func setPFEVolumes(buildtask BuildTask, projectName string) ([]corev1.Volume, []
 }
 
 // setPFEEnvVars sets the env var for the component pod
-func setPFEEnvVars(buildtask BuildTask) []corev1.EnvVar {
+func (b *BuildTask) setPFEEnvVars() []corev1.EnvVar {
 	booleanTrue := bool(true)
 
 	envVars := []corev1.EnvVar{
@@ -156,7 +156,7 @@ func setPFEEnvVars(buildtask BuildTask) []corev1.EnvVar {
 		},
 	}
 
-	if buildtask.Type == "build" {
+	if b.Kind == ReusableBuildContainer {
 		envVars = []corev1.EnvVar{}
 	}
 
@@ -165,12 +165,12 @@ func setPFEEnvVars(buildtask BuildTask) []corev1.EnvVar {
 
 // generateDeployment returns a Kubernetes deployment object with the given name for the given image.
 // Additionally, volume/volumemounts and env vars can be specified.
-func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar) appsv1.Deployment {
+func (b *BuildTask) generateDeployment(volumes []corev1.Volume, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar) appsv1.Deployment {
 	// blockOwnerDeletion := true
 	// controller := true
-	containerName := buildtask.ContainerName
-	image := buildtask.Image
-	labels := buildtask.Labels
+	containerName := b.ContainerName
+	image := b.Image
+	labels := b.Labels
 	replicas := int32(1)
 	container := []corev1.Container{
 		{
@@ -178,20 +178,20 @@ func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMoun
 			Image:           image,
 			ImagePullPolicy: corev1.PullAlways,
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: &buildtask.Privileged,
+				Privileged: &b.Privileged,
 			},
 			VolumeMounts: volumeMounts,
 			Env:          envVars,
 		},
 	}
-	if buildtask.Type == "build" {
+	if b.Kind == ReusableBuildContainer {
 		container = []corev1.Container{
 			{
 				Name:            containerName,
 				Image:           image,
 				ImagePullPolicy: corev1.PullAlways,
 				SecurityContext: &corev1.SecurityContext{
-					Privileged: &buildtask.Privileged,
+					Privileged: &b.Privileged,
 				},
 				VolumeMounts: volumeMounts,
 				Command:      []string{"tail"},
@@ -207,8 +207,8 @@ func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMoun
 			APIVersion: "apps/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildtask.Name,
-			Namespace: buildtask.Namespace,
+			Name:      b.Name,
+			Namespace: b.Namespace,
 			Labels:    labels,
 			// OwnerReferences: []metav1.OwnerReference{
 			// 	{
@@ -231,7 +231,7 @@ func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMoun
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: buildtask.ServiceAccountName,
+					ServiceAccountName: b.ServiceAccountName,
 					Volumes:            volumes,
 					Containers:         container,
 				},
@@ -243,14 +243,14 @@ func generateDeployment(buildtask BuildTask, volumes []corev1.Volume, volumeMoun
 
 // generateService returns a Kubernetes service object with the given name, exposed over the specified port
 // for the container with the given labels.
-func generateService(buildtask BuildTask) corev1.Service {
+func (b *BuildTask) generateService() corev1.Service {
 	// blockOwnerDeletion := true
 	// controller := true
 
 	port1 := 9080
 	port2 := 9443
 
-	labels := buildtask.Labels
+	labels := b.Labels
 
 	ports := []corev1.ServicePort{
 		{
@@ -263,7 +263,7 @@ func generateService(buildtask BuildTask) corev1.Service {
 		},
 	}
 
-	if buildtask.Type == "build" {
+	if b.Kind == ReusableBuildContainer {
 		ports = []corev1.ServicePort{
 			{
 				Port: int32(port1),
@@ -278,8 +278,8 @@ func generateService(buildtask BuildTask) corev1.Service {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildtask.Name,
-			Namespace: buildtask.Namespace,
+			Name:      b.Name,
+			Namespace: b.Namespace,
 			Labels:    labels,
 			// OwnerReferences: []metav1.OwnerReference{
 			// 	{

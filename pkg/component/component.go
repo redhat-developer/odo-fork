@@ -270,7 +270,10 @@ func CreateFromPath(client *kclient.Client, params kclient.CreateArgs) error {
 		}
 
 		podSelector := fmt.Sprintf("deployment=%s", selectorLabels)
-		_, err = client.WaitAndGetPod(podSelector, corev1.PodRunning, "Waiting for component to start")
+		watchOptions := metav1.ListOptions{
+			LabelSelector: podSelector,
+		}
+		_, err = client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for component to start")
 		if err != nil {
 			return err
 		}
@@ -676,9 +679,12 @@ func PushLocal(client *kclient.Client, componentName string, applicationName str
 	}
 	// Find Pod for component
 	podSelector := fmt.Sprintf("deployment=%s", dep.Name)
+	watchOptions := metav1.ListOptions{
+		LabelSelector: podSelector,
+	}
 
 	// Wait for Pod to be in running state otherwise we can't sync data to it.
-	pod, err := client.WaitAndGetPod(podSelector, corev1.PodRunning, "Waiting for component to start")
+	pod, err := client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for component to start")
 	if err != nil {
 		return errors.Wrapf(err, "error while waiting for pod  %s", podSelector)
 	}
