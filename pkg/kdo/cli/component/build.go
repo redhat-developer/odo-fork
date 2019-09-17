@@ -3,7 +3,6 @@ package component
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -48,11 +47,7 @@ func (o *BuildIDPOptions) Complete(name string, cmd *cobra.Command, args []strin
 	o.Context = genericclioptions.NewContext(cmd)
 	o.buildTaskType = args[0]
 	o.projectName = args[1]
-	reuseBuildContainer, err := strconv.ParseBool(args[2])
-	if err != nil {
-		return fmt.Errorf("The third option for reusing the build container should be either true or false")
-	}
-	o.reuseBuildContainer = reuseBuildContainer
+	fmt.Println("reuseBuildContainer flag: ", o.reuseBuildContainer)
 	return
 }
 
@@ -314,11 +309,13 @@ func NewCmdBuild(name, fullName string) *cobra.Command {
 		Short:   "Start a IDP Build",
 		Long:    "Start a IDP Build using the Build Tasks.",
 		Example: fmt.Sprintf(buildCmdExample, fullName),
-		Args:    cobra.ExactArgs(3),
+		Args:    cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			genericclioptions.GenericRun(o, cmd, args)
 		},
 	}
+
+	buildCmd.Flags().BoolVar(&o.reuseBuildContainer, "reuseBuildContainer", false, "Re-use Build Container for IDP Builds")
 
 	return buildCmd
 }
