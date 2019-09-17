@@ -20,10 +20,10 @@ import (
 const BuildRecommendedCommandName = "build"
 
 var buildCmdExample = ktemplates.Examples(`  # Command for a full-build
-%[1]s full <project name> <reuse build container>
+%[1]s full <project name>
 
 # Command for an incremental-build.
-%[1]s inc <project name> <reuse build container>
+%[1]s inc <project name>
   `)
 
 // BuildIDPOptions encapsulates the options for the udo catalog list idp command
@@ -118,15 +118,15 @@ func (o *BuildIDPOptions) Run() (err error) {
 			fmt.Println("Deploying reusable build container...")
 			_, err = clientset.CoreV1().Services(namespace).Create(&reusableBuildContainerService)
 			if err != nil {
-				fmt.Printf("Unable to create application service: %v\n", err)
-				os.Exit(1)
+				err = errors.New("Unable to create reusable build container service: " + err.Error())
+				return err
 			} else {
 				fmt.Println("The service has been created.")
 			}
 			_, err = clientset.AppsV1().Deployments(namespace).Create(&reusableBuildContainerDeploy)
 			if err != nil {
-				fmt.Printf("Unable to create application deployment: %v\n", err)
-				os.Exit(1)
+				err = errors.New("Unable to create reusable build container deployment: " + err.Error())
+				return err
 			} else {
 				fmt.Println("The deployment has been created.")
 			}
@@ -160,10 +160,11 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 		if err != nil {
 			fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), ReusableBuildContainerInstance.PodName, err)
-			os.Exit(1)
-		} else {
-			fmt.Printf("Reusable Build Container Output: \n%s\n", output)
+			err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
+			return err
 		}
+
+		fmt.Printf("Reusable Build Container Output: \n%s\n", output)
 
 		fmt.Println("Finished executing the IDP Build Task in the Reusable Build Container...")
 	} else {
@@ -174,14 +175,14 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 		job, err := build.CreateBuildTaskKubeJob(buildTaskJobName, o.buildTaskType, namespace, idpClaimName, "projects/"+o.projectName, o.projectName)
 		if err != nil {
-			fmt.Println("There was a problem with the job configuration, exiting...")
-			panic(err.Error())
+			err = errors.New("There was a problem with the job configuration: " + err.Error())
+			return err
 		}
 
 		kubeJob, err := clientset.BatchV1().Jobs(namespace).Create(job)
 		if err != nil {
-			fmt.Println("Failed to create a job, exiting...")
-			panic(err.Error())
+			err = errors.New("Failed to create a job: " + err.Error())
+			return err
 		}
 
 		fmt.Printf("The job %s has been created\n", kubeJob.Name)
@@ -208,7 +209,8 @@ func (o *BuildIDPOptions) Run() (err error) {
 		for loop == true {
 			jobs, err := clientset.BatchV1().Jobs(namespace).List(metav1.ListOptions{})
 			if err != nil {
-				panic(err.Error())
+				err = errors.New("Failed to list the job in the namepace: " + err.Error())
+				return err
 			}
 			for _, job := range jobs.Items {
 				if strings.Contains(job.Name, buildTaskJobName) {
@@ -236,15 +238,15 @@ func (o *BuildIDPOptions) Run() (err error) {
 				GracePeriodSeconds: &gracePeriodSeconds,
 			})
 			if err != nil {
-				panic(err.Error())
-			} else {
-				fmt.Printf("The job %s has been deleted\n", buildTaskJobName)
+				return err
 			}
+
+			fmt.Printf("The job %s has been deleted\n", buildTaskJobName)
 		}
 
 		if !jobSucceeded {
-			fmt.Println("The job failed, exiting...")
-			os.Exit(1)
+			err = errors.New("The Kubernetes job failed")
+			return err
 		}
 	}
 
@@ -282,18 +284,18 @@ func (o *BuildIDPOptions) Run() (err error) {
 		fmt.Println("Deploying application...")
 		_, err = clientset.CoreV1().Services(namespace).Create(&service)
 		if err != nil {
-			fmt.Printf("Unable to create application service: %v\n", err)
-			os.Exit(1)
-		} else {
-			fmt.Println("The service has been created.")
+			err = errors.New("Unable to create component service: " + err.Error())
+			return err
 		}
+		fmt.Println("The service has been created.")
+
 		_, err = clientset.AppsV1().Deployments(namespace).Create(&deploy)
 		if err != nil {
-			fmt.Printf("Unable to create application deployment: %v\n", err)
-			os.Exit(1)
-		} else {
-			fmt.Println("The deployment has been created.")
+			err = errors.New("Unable to create component deployment: " + err.Error())
+			return err
 		}
+		fmt.Println("The deployment has been created.")
+
 		fmt.Println("===============================")
 	}
 

@@ -591,14 +591,14 @@ func (c *Client) WaitAndGetPod(watchOptions metav1.ListOptions, desiredPhase cor
 
 // GetPodLogs streams the specified pod's logs to the specified output stream
 func (c *Client) GetPodLogs(pod *corev1.Pod, file *os.File) (err error) {
-	fmt.Printf("Retrieving job logs for pod: %s\n\n", pod.Name)
+	glog.V(4).Infof("Retrieving job logs for pod: %s\n\n", pod.Name)
 	req := c.KubeClient.CoreV1().Pods(c.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
 		Follow: true,
 	})
 	readCloser, err := req.Stream()
 	defer readCloser.Close()
 	if err != nil {
-		fmt.Printf("Unable to retrieve job logs for pod: %s\n", pod.Name)
+		glog.V(4).Infof("Unable to retrieve job logs for pod: %s\n", pod.Name)
 		return
 	}
 
@@ -609,7 +609,7 @@ func (c *Client) GetPodLogs(pod *corev1.Pod, file *os.File) (err error) {
 // ExecPodCmd executes command in the pod container
 func (c *Client) ExecPodCmd(command []string, containerName, podName string) (string, string, error) {
 
-	fmt.Printf("Executing command: %s in pod: %s container: %s\n", strings.Join(command, " "), podName, containerName)
+	glog.V(0).Infof("Executing command: %s in pod: %s container: %s\n", strings.Join(command, " "), podName, containerName)
 
 	clientset := c.KubeClient
 	config := c.KubeClientConfig
@@ -637,7 +637,7 @@ func (c *Client) ExecPodCmd(command []string, containerName, podName string) (st
 
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
-		panic(err)
+		return "", "", err
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -648,7 +648,7 @@ func (c *Client) ExecPodCmd(command []string, containerName, podName string) (st
 		Tty:    false,
 	})
 	if err != nil {
-		panic(err)
+		return "", "", err
 	}
 
 	return stdout.String(), stderr.String(), nil
