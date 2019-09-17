@@ -101,11 +101,8 @@ type LocalConfigInfo struct {
 	configFileExists bool
 }
 
-func getLocalConfigFile(cfgDir string) (string, error) {
-	if env, ok := os.LookupEnv(localConfigEnvName); ok {
-		return env, nil
-	}
-
+// GetUDOFolder retrieves the absolute path of the .udo folder in the current directory udo is used in
+func GetUDOFolder(cfgDir string) (string, error) {
 	if cfgDir == "" {
 		var err error
 		cfgDir, err = os.Getwd()
@@ -113,8 +110,20 @@ func getLocalConfigFile(cfgDir string) (string, error) {
 			return "", err
 		}
 	}
+	return filepath.Join(cfgDir, ".udo"), nil
+}
 
-	return filepath.Join(cfgDir, ".udo", configFileName), nil
+func getLocalConfigFile(cfgDir string) (string, error) {
+	if env, ok := os.LookupEnv(localConfigEnvName); ok {
+		return env, nil
+	}
+
+	udoDir, err := GetUDOFolder(cfgDir)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(udoDir, configFileName), nil
 }
 
 // New returns the localConfigInfo

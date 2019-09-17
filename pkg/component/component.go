@@ -16,6 +16,7 @@ import (
 	componentlabels "github.com/redhat-developer/odo-fork/pkg/component/labels"
 
 	"github.com/redhat-developer/odo-fork/pkg/config"
+	"github.com/redhat-developer/odo-fork/pkg/idp"
 	"github.com/redhat-developer/odo-fork/pkg/kclient"
 	"github.com/redhat-developer/odo-fork/pkg/kdo/util/validation"
 	"github.com/redhat-developer/odo-fork/pkg/log"
@@ -355,7 +356,7 @@ func CreateFromPath(client *kclient.Client, params kclient.CreateArgs) error {
 //		stdout: io.Writer instance to write output to
 //	Returns:
 //		err: errors if any
-func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, context string, stdout io.Writer) (err error) {
+func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, context string, stdout io.Writer, devPack *idp.IDP) (err error) {
 
 	cmpName := componentConfig.GetName()
 	// cmpType := componentConfig.GetType()
@@ -371,7 +372,7 @@ func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigI
 		return err
 	}
 	// TODO-KDO: remove following line and implement storage handling properly for KDO
-	imgName := "jeevandroid/node-express-template:latest"
+	imgName := devPack.Spec.Runtime.Image
 	log.Successf("Initializing component")
 	createArgs := kclient.CreateArgs{
 		Name: cmpName,
@@ -384,8 +385,11 @@ func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigI
 	createArgs.SourceType = cmpSrcType
 	createArgs.SourcePath = componentConfig.GetSourceLocation()
 
+	// If the user overrides ports in the udo config, set them as the component's ports instead (Rather than what the IDP specified)
 	if len(cmpPorts) > 0 {
 		createArgs.Ports = cmpPorts
+	} else {
+		createArgs.Ports = devPack.GetPorts()
 	}
 
 	createArgs.Resources, err = kclient.GetResourceRequirementsFromCmpSettings(componentConfig)
@@ -490,7 +494,7 @@ func ValidateComponentCreateRequest(client *kclient.Client, componentSettings co
 	}
 
 	// Parse the image name
-	_, componentType, _, componentVersion := util.ParseComponentImageName(*componentSettings.Type)
+	_, componentType, _, _ := util.ParseComponentImageName(*componentSettings.Type)
 
 	// Check to see if the catalog type actually exists
 	exists, err := catalog.Exists(componentType)
@@ -500,16 +504,6 @@ func ValidateComponentCreateRequest(client *kclient.Client, componentSettings co
 	if !exists {
 		log.Info("Run 'udo catalog list idp' for a list of supported Iterative-Dev packs")
 		return fmt.Errorf("Failed to find component of type %s", componentType)
-	}
-
-	// Check to see if that particular version exists
-	versionExists, err := catalog.VersionExists(client, componentType, componentVersion)
-	if err != nil {
-		return errors.Wrapf(err, "Failed to create component of type %s of version %s", componentType, componentVersion)
-	}
-	if !versionExists {
-		log.Info("Run 'udo catalog list idp' to see a list of supported component type versions")
-		return fmt.Errorf("Invalid component version %s:%s", componentType, componentVersion)
 	}
 
 	// Validate component name

@@ -9,10 +9,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	// "github.com/redhat-developer/odo-fork/pkg/catalog"
+	"github.com/redhat-developer/odo-fork/pkg/catalog"
 
 	"github.com/redhat-developer/odo-fork/pkg/component"
 	"github.com/redhat-developer/odo-fork/pkg/config"
+	"github.com/redhat-developer/odo-fork/pkg/idp"
 	"github.com/redhat-developer/odo-fork/pkg/log"
 
 	// appCmd "github.com/redhat-developer/odo-fork/pkg/kdo/cli/application"
@@ -467,6 +468,16 @@ func (co *CreateOptions) Run() (err error) {
 	if err != nil {
 		return errors.Wrapf(err, "failed to persist the component settings to config file")
 	}
+
+	// Download the IDP.yaml
+	// We've already validated that the idp with the specified type exists, but should still check for the error to be safe
+	catalogEntry, err := catalog.Get(*co.componentSettings.Type)
+	devPackURL := catalog.DefaultIDPRepo + catalogEntry.Devpack["self"]
+	err = idp.DownloadIDPYaml(devPackURL)
+	if err != nil {
+		return err
+	}
+
 	if co.now {
 		co.Context, co.localConfigInfo, err = genericclioptions.UpdatedContext(co.Context)
 
