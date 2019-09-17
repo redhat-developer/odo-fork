@@ -8,22 +8,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// BuildTaskType is of type string which indiciates the type of build task
+type BuildTaskType string
+
+// BuildTaskScript is of type string which indicates the script path for the build task
+type BuildTaskScript string
+
+// BuildTaskKind is of type string which indicates the kind of build task
+type BuildTaskKind string
+
 const (
-	// Build Task Types
+	// Incremental is of type BuildTaskType which indicates it is an incremental build
+	Incremental BuildTaskType = "inc"
+	// Full is of type BuildTaskType which indicates it is a full build
+	Full BuildTaskType = "full"
 
 	// FullBuildTask is the IDP full build task script path in the Persistent Volume
-	FullBuildTask = "/data/idp/bin/build-container-full.sh"
+	FullBuildTask BuildTaskScript = "/data/idp/bin/build-container-full.sh"
 	// IncrementalBuildTask is the IDP incremental build task script path in the Persistent Volume
-	IncrementalBuildTask = "/data/idp/bin/build-container-update.sh"
+	IncrementalBuildTask BuildTaskScript = "/data/idp/bin/build-container-update.sh"
 
-	// Build Task Struct Kind
-
-	// ReusableBuildContainer is a Build Task Kind where udo will reuse the build container to build projects
-	ReusableBuildContainer string = "ReusableBuildContainer"
-	// KubeJob is a Build Task Kind where udo will kick off a Kube job to build projects
-	KubeJob string = "KubeJob"
-	// Component is a Build Task Kind where udo will deploy a component
-	Component string = "Component"
+	// ReusableBuildContainer is a BuildTaskKind where udo will reuse the build container to build projects
+	ReusableBuildContainer BuildTaskKind = "ReusableBuildContainer"
+	// KubeJob is a BuildTaskKind where udo will kick off a Kube job to build projects
+	KubeJob BuildTaskKind = "KubeJob"
+	// Component is a BuildTaskKind where udo will deploy a component
+	Component BuildTaskKind = "Component"
 )
 
 // GetIDPPVC retrieves the PVC (Persistent Volume Claim) associated with the Iterative Development Pack

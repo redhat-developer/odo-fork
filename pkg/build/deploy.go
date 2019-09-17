@@ -156,7 +156,7 @@ func (b *BuildTask) setPFEEnvVars() []corev1.EnvVar {
 		},
 	}
 
-	if b.Kind == ReusableBuildContainer {
+	if b.Kind == string(ReusableBuildContainer) {
 		envVars = []corev1.EnvVar{}
 	}
 
@@ -184,7 +184,7 @@ func (b *BuildTask) generateDeployment(volumes []corev1.Volume, volumeMounts []c
 			Env:          envVars,
 		},
 	}
-	if b.Kind == ReusableBuildContainer {
+	if b.Kind == string(ReusableBuildContainer) {
 		container = []corev1.Container{
 			{
 				Name:            containerName,
@@ -263,7 +263,7 @@ func (b *BuildTask) generateService() corev1.Service {
 		},
 	}
 
-	if b.Kind == ReusableBuildContainer {
+	if b.Kind == string(ReusableBuildContainer) {
 		ports = []corev1.ServicePort{
 			{
 				Port: int32(port1),

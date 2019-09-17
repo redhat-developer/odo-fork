@@ -13,10 +13,10 @@ func CreateBuildTaskKubeJob(buildTaskJobName string, buildTaskType string, names
 	fmt.Printf("Creating job %s\n", buildTaskJobName)
 	// Create a Kube job to run mvn package for a Liberty project
 	command := []string{"/bin/sh", "-c"}
-	commandArgs := []string{FullBuildTask}
+	commandArgs := []string{string(FullBuildTask)}
 
-	if buildTaskType == "inc" {
-		commandArgs = []string{IncrementalBuildTask}
+	if buildTaskType == string(Incremental) {
+		commandArgs = []string{string(IncrementalBuildTask)}
 	}
 
 	fmt.Printf("Command: %s %s\n", command, commandArgs)

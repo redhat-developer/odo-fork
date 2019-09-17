@@ -53,7 +53,7 @@ func (o *BuildIDPOptions) Complete(name string, cmd *cobra.Command, args []strin
 
 // Validate validates the BuildIDPOptions based on completed values
 func (o *BuildIDPOptions) Validate() (err error) {
-	if o.buildTaskType != "full" && o.buildTaskType != "inc" {
+	if o.buildTaskType != string(build.Full) && o.buildTaskType != string(build.Incremental) {
 		return fmt.Errorf("The first option should be either full or inc")
 	}
 	return
@@ -77,7 +77,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 		// Create the Reusable Build Container deployment object
 		ReusableBuildContainerInstance := build.BuildTask{
-			Kind:               build.ReusableBuildContainer,
+			Kind:               string(build.ReusableBuildContainer),
 			Name:               strings.ToLower(o.projectName) + "-reusable-build-container",
 			Image:              "docker.io/maven:3.6",
 			ContainerName:      "maven-build",
@@ -149,9 +149,9 @@ func (o *BuildIDPOptions) Run() (err error) {
 		fmt.Printf("The Reusable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
 
 		// Execute the Mvm command in the Build Container
-		command := []string{"/bin/sh", "-c", build.FullBuildTask}
-		if o.buildTaskType == "inc" {
-			command = []string{"/bin/sh", "-c", build.IncrementalBuildTask}
+		command := []string{"/bin/sh", "-c", string(build.FullBuildTask)}
+		if o.buildTaskType == string(build.Incremental) {
+			command = []string{"/bin/sh", "-c", string(build.IncrementalBuildTask)}
 		}
 		// command := []string{"/bin/sh", "-c", "hostname", "-f"}
 		output, stderr, err := o.Context.Client.ExecPodCmd(command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName)
@@ -248,13 +248,13 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 	}
 
-	if o.buildTaskType == "full" {
+	if o.buildTaskType == string(build.Full) {
 		// Deploy the application if it is a full build type
 		fmt.Println("Deploying application on a full build")
 
 		// Create the Codewind deployment object
 		BuildTaskInstance := build.BuildTask{
-			Kind:               build.Component,
+			Kind:               string(build.Component),
 			Name:               "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
 			Image:              "websphere-liberty:19.0.0.3-webProfile7",
 			ContainerName:      "libertyproject",
