@@ -16,7 +16,6 @@ type Metadata struct {
 	Maintainers []Maintainer `yaml:"maintainers"`
 }
 
-// Spec ...
 type Spec struct {
 	Dev       SpecDev        `yaml:"dev"`
 	Runtime   SpecRuntime    `yaml:"runtime"`
@@ -25,19 +24,20 @@ type Spec struct {
 	Scenarios []SpecScenario `yaml:"scenario"`
 }
 
-// SpecDev ...
+// SpecDev represents the fields under `spec.dev` in the idp.yaml
 type SpecDev struct {
-	Watched       WatchedFiles  `yaml:"watched"`
-	UploadFilter  UploadFilter  `yaml:"uploadFilter"`
-	TypeDetection TypeDetection `yaml:"typeDetection"`
+	Watched       WatchedFiles         `yaml:"watched"`
+	UploadFilter  UploadFilter         `yaml:"uploadFilter"`
+	TypeDetection []TypeDetectionEntry `yaml:"typeDetection"`
 }
 
+// SpecRuntime defines the runtime image to be used in the IDP, contains info such as docker image, ports, env vars, etc.
 type SpecRuntime struct {
 	Image      string             `yaml:"image"`
 	Endpoints  RuntimeEndpoints   `yaml:"endpoints"`
 	Ports      RuntimePorts       `yaml:"ports"`
 	Logs       []Logs             `yaml:"logs"`
-	Env        []EnvVars          `yaml:"env"`
+	Env        []EnvVar           `yaml:"env"`
 	Kubernetes KubernetesSettings `yaml:"kubernetes"`
 }
 
@@ -45,7 +45,7 @@ type SpecRuntime struct {
 type SpecShared struct {
 	Tasks   SharedTasks     `yaml:"tasks"`
 	Volumes []SharedVolumes `yaml:"volumes"`
-	Env     []EnvVars       `yaml:"env"`
+	Env     []EnvVar        `yaml:"env"`
 }
 
 // SpecTask represents an IDP build task/step
@@ -60,6 +60,7 @@ type SpecTask struct {
 	SourceMappings   []Mappings         `yaml:"sourceMappings"`
 	RunAsUser        int                `yaml:"runAsUser"`
 	Kubernetes       KubernetesSettings `yaml:"kubernetes"`
+	Env              []EnvVar           `yaml:"env"`
 }
 
 type SpecScenario struct {
@@ -99,15 +100,15 @@ type UploadFilter struct {
 	IgnoredPaths []string `yaml:"ignoredPaths"`
 }
 
-// TypeDetection defines the rules used to determine if a project is compatible with a specific IDP
-type TypeDetection struct {
-	PathSelector       []PathSelector `yaml:"pathSelector"`
-	TextStringsToMatch []string       `yaml:"textStringsToMatch"`
+// TypeDetectionEntry defines the rules used to determine if a project is compatible with a specific IDP
+type TypeDetectionEntry struct {
+	PathSelector       PathSelector `yaml:"pathSelector"`
+	TextStringsToMatch []string     `yaml:"textStringsToMatch"`
 }
 
 type PathSelector struct {
 	RootPath         string `yaml:"rootPath"`
-	FileNameWildcard string `yaml:"filenameWildcard"`
+	FilenameWildcard string `yaml:"filenameWildcard"`
 }
 
 type RuntimeEndpoints struct {
@@ -123,13 +124,15 @@ type RuntimePorts struct {
 	InternalPerformancePort string `yaml:"internalPerformancePort"`
 }
 
+// Logs describes a type of log file at a given path
 type Logs struct {
 	Type string `yaml:"type"`
 	Path string `yaml:"path"`
 }
 
+// SharedTasks describes common settings to be applied to all of the tasks in the IDP.yaml
 type SharedTasks struct {
-	DisposeOfSharedContainersOnTaskComplete string `yaml:"disposeOfSharedContainersOnTaskComplete"`
+	DisposeOfSharedContainersOnTaskComplete bool   `yaml:"disposeOfSharedContainersOnTaskComplete"`
 	DisposeOnScenarioComplete               string `yaml:"disposeOnScenarioComplete"`
 	IdleTaskContainerTimeout                int    `yaml:"idleTaskContainerTimeout"`
 }
@@ -142,8 +145,8 @@ type SharedVolumes struct {
 	size   int    `yaml:"size"`
 }
 
-// EnvVars represents a key/value mapping of environment vars to use in runtime and build containers
-type EnvVars struct {
+// EnvVar represents a key/value mapping of environment vars to use in runtime and build containers
+type EnvVar struct {
 	key   string `yaml:"key"`
 	value string `yaml:"value"`
 }
