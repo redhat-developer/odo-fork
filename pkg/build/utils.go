@@ -14,6 +14,9 @@ type BuildTaskType string
 // BuildTaskScript is of type string which indicates the script path for the build task
 type BuildTaskScript string
 
+// RunTaskScript is of type string which indicates the script path for the run task
+type RunTaskScript string
+
 // BuildTaskKind is of type string which indicates the kind of build task
 type BuildTaskKind string
 
@@ -27,6 +30,11 @@ const (
 	FullBuildTask BuildTaskScript = "/data/idp/bin/build-container-full.sh"
 	// IncrementalBuildTask is the IDP incremental build task script path in the Persistent Volume
 	IncrementalBuildTask BuildTaskScript = "/data/idp/bin/build-container-update.sh"
+
+	// FullRunTask is the IDP full run task script path in the Runtime Container Empty Dir Volume
+	FullRunTask RunTaskScript = "/home/default/pvc/bin/runtime-container-full.sh"
+	// IncrementalRunTask is the IDP incremental run task script path in the Runtime Container Empty Dir Volume
+	IncrementalRunTask RunTaskScript = "/home/default/pvc/bin/runtime-container-full.sh"
 
 	// ReusableBuildContainer is a BuildTaskKind where udo will reuse the build container to build projects
 	ReusableBuildContainer BuildTaskKind = "ReusableBuildContainer"

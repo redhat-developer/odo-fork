@@ -1,6 +1,8 @@
 package build
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -9,6 +11,7 @@ import (
 
 //BuildTask is a struct of essential data
 type BuildTask struct {
+	UseRuntime         bool
 	Kind               string
 	Name               string
 	Image              string
@@ -31,8 +34,8 @@ type BuildTask struct {
 // CreateDeploy creates a Kubernetes deployment
 func (b *BuildTask) CreateDeploy() appsv1.Deployment {
 
-	volumes, volumeMounts := b.setPFEVolumes()
-	envVars := b.setPFEEnvVars()
+	volumes, volumeMounts := b.SetPFEVolumes()
+	envVars := b.SetPFEEnvVars()
 
 	return b.generateDeployment(volumes, volumeMounts, envVars)
 }
@@ -43,9 +46,9 @@ func (b *BuildTask) CreateService() corev1.Service {
 	return b.generateService()
 }
 
-// setPFEVolumes returns the 3 volumes & corresponding volume mounts required by the PFE container:
+// SetPFEVolumes returns the 3 volumes & corresponding volume mounts required by the PFE container:
 // project workspace, buildah volume, and the docker registry secret (the latter of which is optional)
-func (b *BuildTask) setPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
+func (b *BuildTask) SetPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 
 	volumes := []corev1.Volume{
 		{
@@ -66,11 +69,47 @@ func (b *BuildTask) setPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 		},
 	}
 
+	fmt.Printf(">> MJF SetPFEVolumes %t\n", b.UseRuntime)
+	// temporary until the syncing is in place
+	if b.UseRuntime == true {
+		fmt.Printf(">> MJF SetPFEVolumes inside %t\n", b.UseRuntime)
+		volumes = []corev1.Volume{
+			{
+				Name: "emptydir-volume",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium: corev1.StorageMediumMemory,
+					},
+				},
+			},
+			{
+				Name: "idp-volume",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: b.PVCName,
+					},
+				},
+			},
+		}
+
+		volumeMounts = []corev1.VolumeMount{
+			{
+				Name:      "emptydir-volume",
+				MountPath: "/home/default/emptydir",
+			},
+			{
+				Name:      "idp-volume",
+				MountPath: b.MountPath,
+				SubPath:   b.SubPath,
+			},
+		}
+	}
+
 	return volumes, volumeMounts
 }
 
-// setPFEEnvVars sets the env var for the component pod
-func (b *BuildTask) setPFEEnvVars() []corev1.EnvVar {
+// SetPFEEnvVars sets the env var for the component pod
+func (b *BuildTask) SetPFEEnvVars() []corev1.EnvVar {
 	booleanTrue := bool(true)
 
 	envVars := []corev1.EnvVar{
@@ -184,7 +223,7 @@ func (b *BuildTask) generateDeployment(volumes []corev1.Volume, volumeMounts []c
 			Env:          envVars,
 		},
 	}
-	if b.Kind == string(ReusableBuildContainer) {
+	if b.Kind == string(ReusableBuildContainer) || b.UseRuntime {
 		container = []corev1.Container{
 			{
 				Name:            containerName,

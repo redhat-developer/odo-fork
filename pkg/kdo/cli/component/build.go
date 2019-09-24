@@ -32,6 +32,7 @@ type BuildIDPOptions struct {
 	buildTaskType       string
 	projectName         string
 	reuseBuildContainer bool
+	useRuntimeContainer bool
 	// generic context options common to all commands
 	*genericclioptions.Context
 }
@@ -47,7 +48,8 @@ func (o *BuildIDPOptions) Complete(name string, cmd *cobra.Command, args []strin
 	o.Context = genericclioptions.NewContext(cmd)
 	o.buildTaskType = args[0]
 	o.projectName = args[1]
-	fmt.Println("reuseBuildContainer flag: ", o.reuseBuildContainer)
+	o.reuseBuildContainer = true // Force re-use the build container for now, disable Kube Job
+	fmt.Println("useRuntimeContainer flag: ", o.useRuntimeContainer)
 	return
 }
 
@@ -72,11 +74,12 @@ func (o *BuildIDPOptions) Run() (err error) {
 	serviceAccountName := "default"
 	fmt.Printf("Service Account: %s\n", serviceAccountName)
 
-	if o.reuseBuildContainer == true {
+	if o.reuseBuildContainer == true && o.useRuntimeContainer == false {
 		// Create a Build Container for re-use if not present
 
 		// Create the Reusable Build Container deployment object
 		ReusableBuildContainerInstance := build.BuildTask{
+			UseRuntime:         false,
 			Kind:               string(build.ReusableBuildContainer),
 			Name:               strings.ToLower(o.projectName) + "-reusable-build-container",
 			Image:              "docker.io/maven:3.6",
@@ -111,27 +114,18 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 
 		if !foundReusableBuildContainer {
-			reusableBuildContainerDeploy := ReusableBuildContainerInstance.CreateDeploy()
-			reusableBuildContainerService := ReusableBuildContainerInstance.CreateService()
-
 			fmt.Println("===============================")
-			fmt.Println("Deploying reusable build container...")
-			_, err = clientset.CoreV1().Services(namespace).Create(&reusableBuildContainerService)
-			if err != nil {
-				err = errors.New("Unable to create reusable build container service: " + err.Error())
-				return err
-			} else {
-				fmt.Println("The service has been created.")
-			}
-			_, err = clientset.AppsV1().Deployments(namespace).Create(&reusableBuildContainerDeploy)
-			if err != nil {
-				err = errors.New("Unable to create reusable build container deployment: " + err.Error())
-				return err
-			} else {
-				fmt.Println("The deployment has been created.")
-			}
-			fmt.Println("===============================")
+			fmt.Println("Creating a pod...")
+			volumes, volumeMounts := ReusableBuildContainerInstance.SetPFEVolumes()
+			envVars := ReusableBuildContainerInstance.SetPFEEnvVars()
 
+			pod, err := o.Context.Client.CreatePod(ReusableBuildContainerInstance.Name, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.Image, ReusableBuildContainerInstance.Namespace, ReusableBuildContainerInstance.ServiceAccountName, ReusableBuildContainerInstance.Labels, volumes, volumeMounts, envVars, ReusableBuildContainerInstance.Privileged)
+			if err != nil {
+				err = errors.New("Failed to create a pod " + ReusableBuildContainerInstance.Name)
+				return err
+			}
+			fmt.Println("Created pod: " + pod.GetName())
+			fmt.Println("===============================")
 			// Wait for pods to start and grab the pod name
 			fmt.Printf("Waiting for pod to run\n")
 			watchOptions := metav1.ListOptions{
@@ -147,6 +141,8 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 
 		fmt.Printf("The Reusable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
+
+		// Sync the project to the Build Container - TODO
 
 		// Execute the Mvm command in the Build Container
 		command := []string{"/bin/sh", "-c", string(build.FullBuildTask)}
@@ -167,7 +163,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 		fmt.Printf("Reusable Build Container Output: \n%s\n", output)
 
 		fmt.Println("Finished executing the IDP Build Task in the Reusable Build Container...")
-	} else {
+	} else if o.reuseBuildContainer == false && o.useRuntimeContainer == false {
 		// Create a Kube Job for building
 		fmt.Println("Creating a Kube Job for building...")
 
@@ -250,12 +246,13 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 	}
 
-	if o.buildTaskType == string(build.Full) {
+	if o.useRuntimeContainer == true || o.buildTaskType == string(build.Full) {
 		// Deploy the application if it is a full build type
-		fmt.Println("Deploying application on a full build")
+		fmt.Println("Deploying the application")
 
 		// Create the Codewind deployment object
 		BuildTaskInstance := build.BuildTask{
+			UseRuntime:         false,
 			Kind:               string(build.Component),
 			Name:               "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
 			Image:              "websphere-liberty:19.0.0.3-webProfile7",
@@ -268,6 +265,14 @@ func (o *BuildIDPOptions) Run() (err error) {
 			Privileged: true,
 			MountPath:  "/config",
 			SubPath:    "projects/" + o.projectName + "/buildartifacts/",
+		}
+
+		if o.useRuntimeContainer == true {
+			fmt.Println(">> MJF RUNTIME")
+			BuildTaskInstance.Image = "maysunfaisal/libertymvnjava"
+			BuildTaskInstance.UseRuntime = true
+			BuildTaskInstance.MountPath = "/home/default/pvc"
+			BuildTaskInstance.SubPath = "projects/" + o.projectName
 		}
 
 		BuildTaskInstance.Labels = map[string]string{
@@ -297,6 +302,39 @@ func (o *BuildIDPOptions) Run() (err error) {
 		fmt.Println("The deployment has been created.")
 
 		fmt.Println("===============================")
+
+		if o.useRuntimeContainer == true {
+			// Sync the project to the Runtime Container - TODO
+			fmt.Printf("Waiting for pod to run\n")
+			watchOptions := metav1.ListOptions{
+				LabelSelector: "app=javamicroprofiletemplate-selector,chart=javamicroprofiletemplate-1.0.0,release=" + BuildTaskInstance.Name,
+			}
+			po, err := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Reusable Build Container to run")
+			if err != nil {
+				err = errors.New("The Reusable Build Container failed to run")
+				return err
+			}
+			fmt.Println("The Component Pod is up and running: " + po.Name)
+			BuildTaskInstance.PodName = po.Name
+
+			// Execute the Runtime task in the Runtime Container
+			command := []string{"/bin/sh", "-c", string(build.FullRunTask)}
+			if o.buildTaskType == string(build.Incremental) {
+				command = []string{"/bin/sh", "-c", string(build.FullRunTask)}
+			}
+			output, stderr, err := o.Context.Client.ExecPodCmd(command, BuildTaskInstance.ContainerName, BuildTaskInstance.PodName)
+			if len(stderr) != 0 {
+				fmt.Println("Reusable Build Container stderr: ", stderr)
+			}
+			if err != nil {
+				fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), BuildTaskInstance.PodName, err)
+				err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
+				return err
+			}
+
+			fmt.Printf("Reusable Build Container Output: \n%s\n", output)
+
+		}
 	}
 
 	return
@@ -317,7 +355,7 @@ func NewCmdBuild(name, fullName string) *cobra.Command {
 		},
 	}
 
-	buildCmd.Flags().BoolVar(&o.reuseBuildContainer, "reuseBuildContainer", false, "Re-use Build Container for IDP Builds")
+	buildCmd.Flags().BoolVar(&o.useRuntimeContainer, "useRuntimeContainer", false, "Use the runtime container for IDP Builds")
 
 	return buildCmd
 }

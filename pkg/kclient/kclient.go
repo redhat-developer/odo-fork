@@ -535,6 +535,46 @@ func updateEnvVar(deployment *appsv1.Deployment, envVars []corev1.EnvVar) error 
 	return nil
 }
 
+// CreatePod creates a pod with the specifications
+func (c *Client) CreatePod(podName, containerName, image, namespace, serviceAccountName string, labels map[string]string, volumes []corev1.Volume, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar, privileged bool) (*corev1.Pod, error) {
+	container := []corev1.Container{
+		{
+			Name:            containerName,
+			Image:           image,
+			ImagePullPolicy: corev1.PullAlways,
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: &privileged,
+			},
+			VolumeMounts: volumeMounts,
+			Command:      []string{"tail"},
+			Args:         []string{"-f", "/dev/null"},
+			Env:          envVars,
+		},
+	}
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName: serviceAccountName,
+			Volumes:            volumes,
+			Containers:         container,
+		},
+	}
+
+	pod, err := c.KubeClient.CoreV1().Pods(c.Namespace).Create(pod)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to create pod")
+	}
+	return pod, nil
+}
+
 // WaitAndGetPod block and waits until pod matching selector is in in Running state
 // desiredPhase cannot be PodFailed or PodUnknown
 func (c *Client) WaitAndGetPod(watchOptions metav1.ListOptions, desiredPhase corev1.PodPhase, waitMessage string) (*corev1.Pod, error) {
