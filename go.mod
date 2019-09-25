@@ -20,7 +20,6 @@ require (
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	gopkg.in/AlecAivazis/survey.v1 v1.8.5
-	gopkg.in/yaml.v2 v2.2.2
 	gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966
 	k8s.io/api v0.0.0-20190718062839-c8a0b81cb10e
 	k8s.io/apimachinery v0.0.0-20190719140911-bfcf53abc9f8

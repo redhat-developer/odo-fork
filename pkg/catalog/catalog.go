@@ -33,7 +33,7 @@ func List() ([]CatalogEntry, error) {
 	// Load the index.json file into memory
 	var jsonBytes []byte
 	if _, err := os.Stat(indexJSONFile); os.IsNotExist(err) {
-		jsonBytes, err = downloadIndexJson()
+		jsonBytes, err = downloadIndexJSON()
 		if err != nil {
 			return nil, fmt.Errorf("unable to download index.json from %s", DefaultIDPCatalog)
 		}
@@ -102,8 +102,8 @@ func Get(name string) (*CatalogEntry, error) {
 	return nil, fmt.Errorf("Could not find an IDP matching the name %s", name)
 }
 
-// downloadIndexJson downloads the index.json to a temp directory for UDO to access
-func downloadIndexJson() ([]byte, error) {
+// downloadIndexJSON downloads the index.json to a temp directory for the CLI to access
+func downloadIndexJSON() ([]byte, error) {
 	// Download the IDP index.json
 	var httpClient = &http.Client{Timeout: 10 * time.Second}
 	resp, err := httpClient.Get(DefaultIDPCatalog)

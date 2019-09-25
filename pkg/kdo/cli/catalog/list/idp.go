@@ -18,8 +18,6 @@ var idpsExample = `  # Get the supported Iterative-dev Packs`
 type ListIDPOptions struct {
 	// list of known images
 	catalogList []catalog.CatalogEntry
-	// generic context options common to all commands
-	*genericclioptions.Context
 }
 
 // NewListIDPOptions creates a new ListIDPOptions instance
@@ -29,7 +27,6 @@ func NewListIDPOptions() *ListIDPOptions {
 
 // Complete completes ListIDPOptions after they've been created
 func (o *ListIDPOptions) Complete(name string, cmd *cobra.Command, args []string) (err error) {
-	o.Context = genericclioptions.NewContext(cmd)
 	o.catalogList, err = catalog.List()
 	if err != nil {
 		return err

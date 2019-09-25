@@ -13,6 +13,8 @@ import (
 	"github.com/redhat-developer/odo-fork/pkg/config"
 )
 
+const IDPYaml = "idp.yaml"
+
 // Get loads in the project's idp.yaml from disk
 func Get() (*IDP, error) {
 	// Retrieve the IDP.yaml file
@@ -20,7 +22,7 @@ func Get() (*IDP, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unabled to find .udo folder in current directory")
 	}
-	idpFile := path.Join(udoDir, "idp.yaml")
+	idpFile := path.Join(udoDir, IDPYaml)
 
 	// Load it into memory
 	var idpBytes []byte
@@ -28,7 +30,7 @@ func Get() (*IDP, error) {
 	if _, err := os.Stat(idpFile); os.IsNotExist(err) {
 		//jsonBytes, err = downloadIDPs()
 		if err != nil {
-			return nil, fmt.Errorf("Unable to find idp.yaml at %s", idpFile)
+			return nil, fmt.Errorf("Unable to find %s at %s", IDPYaml, idpFile)
 		}
 	} else {
 		file, err := os.Open(idpFile)
@@ -61,7 +63,15 @@ func DownloadIDPYaml(idpURL string) error {
 	if err != nil {
 		return err
 	}
-	idpPath := path.Join(udoDir, "idp.yaml")
+
+	// Before writing to disk, verify that the IDP.yaml is valid (can be unmarshalled)
+	var idp IDP
+	err = yaml.Unmarshal(idpBytes, &idp)
+	if err != nil {
+		return fmt.Errorf("unable to download Iterative-Dev pack, idp.yaml invalid: %s", err)
+	}
+
+	idpPath := path.Join(udoDir, IDPYaml)
 	return ioutil.WriteFile(idpPath, idpBytes, 0644)
 }
 
