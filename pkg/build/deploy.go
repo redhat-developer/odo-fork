@@ -70,7 +70,6 @@ func (b *BuildTask) SetPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 	}
 
 	fmt.Printf(">> MJF SetPFEVolumes %t\n", b.UseRuntime)
-	// temporary until the syncing is in place
 	if b.UseRuntime == true {
 		fmt.Printf(">> MJF SetPFEVolumes inside %t\n", b.UseRuntime)
 		volumes = []corev1.Volume{
@@ -82,25 +81,12 @@ func (b *BuildTask) SetPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 					},
 				},
 			},
-			{
-				Name: "idp-volume",
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: b.PVCName,
-					},
-				},
-			},
 		}
 
 		volumeMounts = []corev1.VolumeMount{
 			{
 				Name:      "emptydir-volume",
-				MountPath: "/home/default/emptydir",
-			},
-			{
-				Name:      "idp-volume",
 				MountPath: b.MountPath,
-				SubPath:   b.SubPath,
 			},
 		}
 	}

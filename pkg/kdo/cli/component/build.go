@@ -74,12 +74,20 @@ func (o *BuildIDPOptions) Run() (err error) {
 	serviceAccountName := "default"
 	fmt.Printf("Service Account: %s\n", serviceAccountName)
 
+	// cwd is determined by Turbine, which will run the udo command in the project root directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		err = errors.New("Unable to get the cwd" + err.Error())
+		return err
+	}
+	fmt.Printf("CWD: %s\n", cwd)
+
 	if o.reuseBuildContainer == true && o.useRuntimeContainer == false {
 		// Create a Build Container for re-use if not present
 
 		// Create the Reusable Build Container deployment object
 		ReusableBuildContainerInstance := build.BuildTask{
-			UseRuntime:         false,
+			UseRuntime:         o.useRuntimeContainer,
 			Kind:               string(build.ReusableBuildContainer),
 			Name:               strings.ToLower(o.projectName) + "-reusable-build-container",
 			Image:              "docker.io/maven:3.6",
@@ -248,7 +256,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 	// Create the Codewind deployment object
 	BuildTaskInstance := build.BuildTask{
-		UseRuntime:         false,
+		UseRuntime:         o.useRuntimeContainer,
 		Kind:               string(build.Component),
 		Name:               "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
 		Image:              "websphere-liberty:19.0.0.3-webProfile7",
@@ -263,7 +271,14 @@ func (o *BuildIDPOptions) Run() (err error) {
 		SubPath:    "projects/" + o.projectName + "/buildartifacts/",
 	}
 
-	if o.useRuntimeContainer == true || o.buildTaskType == string(build.Full) {
+	if o.useRuntimeContainer {
+		fmt.Println(">> MJF RUNTIME")
+		BuildTaskInstance.Image = "maysunfaisal/libertymvnjava"
+		BuildTaskInstance.MountPath = "/home/default/emptydir"
+		BuildTaskInstance.SubPath = ""
+	}
+
+	if o.useRuntimeContainer || o.buildTaskType == string(build.Full) {
 		// Check if the Runtime Pod has been deployed
 		// Check if the pod is running and grab the pod name
 		fmt.Printf("Checking if Runtime Container has already been deployed...\n")
@@ -283,14 +298,6 @@ func (o *BuildIDPOptions) Run() (err error) {
 		if !foundRuntimeContainer {
 			// Deploy the application if it is a full build type and a running pod is not found
 			fmt.Println("Deploying the application")
-
-			if o.useRuntimeContainer == true {
-				fmt.Println(">> MJF RUNTIME")
-				BuildTaskInstance.Image = "maysunfaisal/libertymvnjava"
-				BuildTaskInstance.UseRuntime = true
-				BuildTaskInstance.MountPath = "/home/default/pvc"
-				BuildTaskInstance.SubPath = "projects/" + o.projectName
-			}
 
 			BuildTaskInstance.Labels = map[string]string{
 				"app":     "javamicroprofiletemplate-selector",
@@ -335,12 +342,17 @@ func (o *BuildIDPOptions) Run() (err error) {
 	}
 
 	if o.useRuntimeContainer {
-		// Sync the project to the Runtime Container - TODO
+		// Sync the project to the Runtime Container on first deploy & update for the S2I model, skip if its a Build Container Model
+		err = o.Context.Client.CopyFile(cwd, BuildTaskInstance.PodName, BuildTaskInstance.MountPath, []string{}, []string{})
+		if err != nil {
+			err = errors.New("Unable to copy files to the pod " + BuildTaskInstance.PodName + ": " + err.Error())
+			return err
+		}
 
 		// Execute the Runtime task in the Runtime Container
-		command := []string{"/bin/sh", "-c", string(build.FullRunTask)}
+		command := []string{"/bin/sh", "-c", BuildTaskInstance.MountPath + string(build.FullRunTask)}
 		if o.buildTaskType == string(build.Incremental) {
-			command = []string{"/bin/sh", "-c", string(build.IncrementalRunTask)}
+			command = []string{"/bin/sh", "-c", BuildTaskInstance.MountPath + string(build.IncrementalRunTask)}
 		}
 		output, stderr, err := o.Context.Client.ExecPodCmd(command, BuildTaskInstance.ContainerName, BuildTaskInstance.PodName)
 		if len(stderr) != 0 {
