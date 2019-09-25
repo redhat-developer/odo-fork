@@ -34,7 +34,7 @@ const (
 	// FullRunTask is the IDP full run task script path in the Runtime Container Empty Dir Volume
 	FullRunTask RunTaskScript = "/home/default/pvc/bin/runtime-container-full.sh"
 	// IncrementalRunTask is the IDP incremental run task script path in the Runtime Container Empty Dir Volume
-	IncrementalRunTask RunTaskScript = "/home/default/pvc/bin/runtime-container-full.sh"
+	IncrementalRunTask RunTaskScript = "/home/default/pvc/bin/runtime-container-update.sh"
 
 	// ReusableBuildContainer is a BuildTaskKind where udo will reuse the build container to build projects
 	ReusableBuildContainer BuildTaskKind = "ReusableBuildContainer"

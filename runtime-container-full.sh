@@ -12,7 +12,7 @@ ls -la /home/default/pvc/src
 # temporary until the syncing is in place
 date
 echo copying /home/default/pvc/src/. to /home/default/emptydir/src
-cp -rf /home/default/pvc/src/. /home/default/emptydir/src/
+cp -Rf /home/default/pvc/src/. /home/default/emptydir/src/
 
 date
 echo cd /home/default/emptydir/src and listing

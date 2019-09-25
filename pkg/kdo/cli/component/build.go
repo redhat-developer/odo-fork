@@ -246,65 +246,80 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 	}
 
+	// Create the Codewind deployment object
+	BuildTaskInstance := build.BuildTask{
+		UseRuntime:         false,
+		Kind:               string(build.Component),
+		Name:               "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
+		Image:              "websphere-liberty:19.0.0.3-webProfile7",
+		ContainerName:      "libertyproject",
+		Namespace:          namespace,
+		PVCName:            idpClaimName,
+		ServiceAccountName: serviceAccountName,
+		// OwnerReferenceName: ownerReferenceName,
+		// OwnerReferenceUID:  ownerReferenceUID,
+		Privileged: true,
+		MountPath:  "/config",
+		SubPath:    "projects/" + o.projectName + "/buildartifacts/",
+	}
+
 	if o.useRuntimeContainer == true || o.buildTaskType == string(build.Full) {
-		// Deploy the application if it is a full build type
-		fmt.Println("Deploying the application")
-
-		// Create the Codewind deployment object
-		BuildTaskInstance := build.BuildTask{
-			UseRuntime:         false,
-			Kind:               string(build.Component),
-			Name:               "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
-			Image:              "websphere-liberty:19.0.0.3-webProfile7",
-			ContainerName:      "libertyproject",
-			Namespace:          namespace,
-			PVCName:            idpClaimName,
-			ServiceAccountName: serviceAccountName,
-			// OwnerReferenceName: ownerReferenceName,
-			// OwnerReferenceUID:  ownerReferenceUID,
-			Privileged: true,
-			MountPath:  "/config",
-			SubPath:    "projects/" + o.projectName + "/buildartifacts/",
+		// Check if the Runtime Pod has been deployed
+		// Check if the pod is running and grab the pod name
+		fmt.Printf("Checking if Runtime Container has already been deployed...\n")
+		foundRuntimeContainer := false
+		timeout := int64(10)
+		watchOptions := metav1.ListOptions{
+			LabelSelector:  "app=javamicroprofiletemplate-selector,chart=javamicroprofiletemplate-1.0.0,release=" + BuildTaskInstance.Name,
+			TimeoutSeconds: &timeout,
+		}
+		po, _ := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Runtime Container has already been deployed...")
+		if po != nil {
+			fmt.Printf("Running pod found: %s...\n\n", po.Name)
+			BuildTaskInstance.PodName = po.Name
+			foundRuntimeContainer = true
 		}
 
-		if o.useRuntimeContainer == true {
-			fmt.Println(">> MJF RUNTIME")
-			BuildTaskInstance.Image = "maysunfaisal/libertymvnjava"
-			BuildTaskInstance.UseRuntime = true
-			BuildTaskInstance.MountPath = "/home/default/pvc"
-			BuildTaskInstance.SubPath = "projects/" + o.projectName
-		}
+		if !foundRuntimeContainer {
+			// Deploy the application if it is a full build type and a running pod is not found
+			fmt.Println("Deploying the application")
 
-		BuildTaskInstance.Labels = map[string]string{
-			"app":     "javamicroprofiletemplate-selector",
-			"chart":   "javamicroprofiletemplate-1.0.0",
-			"release": BuildTaskInstance.Name,
-		}
+			if o.useRuntimeContainer == true {
+				fmt.Println(">> MJF RUNTIME")
+				BuildTaskInstance.Image = "maysunfaisal/libertymvnjava"
+				BuildTaskInstance.UseRuntime = true
+				BuildTaskInstance.MountPath = "/home/default/pvc"
+				BuildTaskInstance.SubPath = "projects/" + o.projectName
+			}
 
-		// Deploy Application
-		deploy := BuildTaskInstance.CreateDeploy()
-		service := BuildTaskInstance.CreateService()
+			BuildTaskInstance.Labels = map[string]string{
+				"app":     "javamicroprofiletemplate-selector",
+				"chart":   "javamicroprofiletemplate-1.0.0",
+				"release": BuildTaskInstance.Name,
+			}
 
-		fmt.Println("===============================")
-		fmt.Println("Deploying application...")
-		_, err = clientset.CoreV1().Services(namespace).Create(&service)
-		if err != nil {
-			err = errors.New("Unable to create component service: " + err.Error())
-			return err
-		}
-		fmt.Println("The service has been created.")
+			// Deploy Application
+			deploy := BuildTaskInstance.CreateDeploy()
+			service := BuildTaskInstance.CreateService()
 
-		_, err = clientset.AppsV1().Deployments(namespace).Create(&deploy)
-		if err != nil {
-			err = errors.New("Unable to create component deployment: " + err.Error())
-			return err
-		}
-		fmt.Println("The deployment has been created.")
+			fmt.Println("===============================")
+			fmt.Println("Deploying application...")
+			_, err = clientset.CoreV1().Services(namespace).Create(&service)
+			if err != nil {
+				err = errors.New("Unable to create component service: " + err.Error())
+				return err
+			}
+			fmt.Println("The service has been created.")
 
-		fmt.Println("===============================")
+			_, err = clientset.AppsV1().Deployments(namespace).Create(&deploy)
+			if err != nil {
+				err = errors.New("Unable to create component deployment: " + err.Error())
+				return err
+			}
+			fmt.Println("The deployment has been created.")
+			fmt.Println("===============================")
 
-		if o.useRuntimeContainer == true {
-			// Sync the project to the Runtime Container - TODO
+			// Wait for the pod to run
 			fmt.Printf("Waiting for pod to run\n")
 			watchOptions := metav1.ListOptions{
 				LabelSelector: "app=javamicroprofiletemplate-selector,chart=javamicroprofiletemplate-1.0.0,release=" + BuildTaskInstance.Name,
@@ -316,25 +331,28 @@ func (o *BuildIDPOptions) Run() (err error) {
 			}
 			fmt.Println("The Component Pod is up and running: " + po.Name)
 			BuildTaskInstance.PodName = po.Name
-
-			// Execute the Runtime task in the Runtime Container
-			command := []string{"/bin/sh", "-c", string(build.FullRunTask)}
-			if o.buildTaskType == string(build.Incremental) {
-				command = []string{"/bin/sh", "-c", string(build.FullRunTask)}
-			}
-			output, stderr, err := o.Context.Client.ExecPodCmd(command, BuildTaskInstance.ContainerName, BuildTaskInstance.PodName)
-			if len(stderr) != 0 {
-				fmt.Println("Reusable Build Container stderr: ", stderr)
-			}
-			if err != nil {
-				fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), BuildTaskInstance.PodName, err)
-				err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
-				return err
-			}
-
-			fmt.Printf("Reusable Build Container Output: \n%s\n", output)
-
 		}
+	}
+
+	if o.useRuntimeContainer {
+		// Sync the project to the Runtime Container - TODO
+
+		// Execute the Runtime task in the Runtime Container
+		command := []string{"/bin/sh", "-c", string(build.FullRunTask)}
+		if o.buildTaskType == string(build.Incremental) {
+			command = []string{"/bin/sh", "-c", string(build.IncrementalRunTask)}
+		}
+		output, stderr, err := o.Context.Client.ExecPodCmd(command, BuildTaskInstance.ContainerName, BuildTaskInstance.PodName)
+		if len(stderr) != 0 {
+			fmt.Println("Runtime Container stderr: ", stderr)
+		}
+		if err != nil {
+			fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), BuildTaskInstance.PodName, err)
+			err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the runtime container: " + err.Error())
+			return err
+		}
+
+		fmt.Printf("Runtime Container Output: \n%s\n", output)
 	}
 
 	return
