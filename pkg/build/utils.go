@@ -20,20 +20,23 @@ type RunTaskScript string
 // BuildTaskKind is of type string which indicates the kind of build task
 type BuildTaskKind string
 
+// WebSphereLibertyImage is of type string which indicates the Liberty image
+type WebSphereLibertyImage string
+
 const (
 	// Incremental is of type BuildTaskType which indicates it is an incremental build
 	Incremental BuildTaskType = "inc"
 	// Full is of type BuildTaskType which indicates it is a full build
 	Full BuildTaskType = "full"
 
-	// FullBuildTask is the IDP full build task script path in the Persistent Volume
-	FullBuildTask BuildTaskScript = "/data/idp/bin/build-container-full.sh"
-	// IncrementalBuildTask is the IDP incremental build task script path in the Persistent Volume
-	IncrementalBuildTask BuildTaskScript = "/data/idp/bin/build-container-update.sh"
+	// FullBuildTask is the relative path of the IDP full build task in the Persistent Volume's project directory
+	FullBuildTask BuildTaskScript = "/.udo/build-container-full.sh"
+	// IncrementalBuildTask is the relative path of the IDP incremental build task in the Persistent Volume's project directory
+	IncrementalBuildTask BuildTaskScript = "/.udo/build-container-update.sh"
 
-	// FullRunTask is the IDP full run task script path in the Runtime Container Empty Dir Volume
+	// FullRunTask is the relative path of the IDP full run task in the Runtime Container Empty Dir Volume's project directory
 	FullRunTask RunTaskScript = "/.udo/runtime-container-full.sh"
-	// IncrementalRunTask is the IDP incremental run task script path in the Runtime Container Empty Dir Volume
+	// IncrementalRunTask is the relative path of the IDP incremental run task in the Runtime Container Empty Dir Volume's project directory
 	IncrementalRunTask RunTaskScript = "/.udo/runtime-container-update.sh"
 
 	// ReusableBuildContainer is a BuildTaskKind where udo will reuse the build container to build projects
@@ -42,6 +45,11 @@ const (
 	KubeJob BuildTaskKind = "KubeJob"
 	// Component is a BuildTaskKind where udo will deploy a component
 	Component BuildTaskKind = "Component"
+
+	// RuntimeImage is the default WebSphere Liberty Runtime image
+	RuntimeImage WebSphereLibertyImage = "websphere-liberty:19.0.0.3-webProfile7"
+	// RuntimeWithMavenJavaImage is the default WebSphere Liberty Runtime image with Maven and Java installed
+	RuntimeWithMavenJavaImage WebSphereLibertyImage = "maysunfaisal/libertymvnjava"
 )
 
 // GetIDPPVC retrieves the PVC (Persistent Volume Claim) associated with the Iterative Development Pack

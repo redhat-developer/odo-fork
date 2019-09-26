@@ -150,14 +150,8 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 		fmt.Printf("The Reusable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
 
-		// Sync the project to the Build Container - TODO
-
-		// Execute the Mvm command in the Build Container
-		command := []string{"/bin/sh", "-c", string(build.FullBuildTask)}
-		if o.buildTaskType == string(build.Incremental) {
-			command = []string{"/bin/sh", "-c", string(build.IncrementalBuildTask)}
-		}
-		// command := []string{"/bin/sh", "-c", "hostname", "-f"}
+		// Before Syncing, create the destination directory in the Build Container
+		command := []string{"/bin/sh", "-c", "mkdir -p " + ReusableBuildContainerInstance.MountPath + "/src"}
 		output, stderr, err := o.Context.Client.ExecPodCmd(command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName)
 		if len(stderr) != 0 {
 			fmt.Println("Reusable Build Container stderr: ", stderr)
@@ -167,7 +161,29 @@ func (o *BuildIDPOptions) Run() (err error) {
 			err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
 			return err
 		}
+		fmt.Printf("Reusable Build Container Output: \n%s\n", output)
 
+		// Sync the project to the Build Container
+		err = o.Context.Client.CopyFile(cwd, ReusableBuildContainerInstance.PodName, ReusableBuildContainerInstance.MountPath+"/src", []string{}, []string{})
+		if err != nil {
+			err = errors.New("Unable to copy files to the pod " + ReusableBuildContainerInstance.PodName + ": " + err.Error())
+			return err
+		}
+
+		// Execute the Build Tasks in the Build Container
+		command = []string{"/bin/sh", "-c", ReusableBuildContainerInstance.MountPath + "/src" + string(build.FullBuildTask)}
+		if o.buildTaskType == string(build.Incremental) {
+			command = []string{"/bin/sh", "-c", ReusableBuildContainerInstance.MountPath + "/src" + string(build.IncrementalBuildTask)}
+		}
+		output, stderr, err = o.Context.Client.ExecPodCmd(command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName)
+		if len(stderr) != 0 {
+			fmt.Println("Reusable Build Container stderr: ", stderr)
+		}
+		if err != nil {
+			fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), ReusableBuildContainerInstance.PodName, err)
+			err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
+			return err
+		}
 		fmt.Printf("Reusable Build Container Output: \n%s\n", output)
 
 		fmt.Println("Finished executing the IDP Build Task in the Reusable Build Container...")
@@ -259,7 +275,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 		UseRuntime:         o.useRuntimeContainer,
 		Kind:               string(build.Component),
 		Name:               "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
-		Image:              "websphere-liberty:19.0.0.3-webProfile7",
+		Image:              string(build.RuntimeImage),
 		ContainerName:      "libertyproject",
 		Namespace:          namespace,
 		PVCName:            idpClaimName,
@@ -273,7 +289,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 	if o.useRuntimeContainer {
 		fmt.Println(">> MJF RUNTIME")
-		BuildTaskInstance.Image = "maysunfaisal/libertymvnjava"
+		BuildTaskInstance.Image = string(build.RuntimeWithMavenJavaImage)
 		BuildTaskInstance.MountPath = "/home/default/emptydir"
 		BuildTaskInstance.SubPath = ""
 	}
@@ -331,9 +347,9 @@ func (o *BuildIDPOptions) Run() (err error) {
 			watchOptions := metav1.ListOptions{
 				LabelSelector: "app=javamicroprofiletemplate-selector,chart=javamicroprofiletemplate-1.0.0,release=" + BuildTaskInstance.Name,
 			}
-			po, err := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Reusable Build Container to run")
+			po, err := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Component Container to run")
 			if err != nil {
-				err = errors.New("The Reusable Build Container failed to run")
+				err = errors.New("The Component Container failed to run")
 				return err
 			}
 			fmt.Println("The Component Pod is up and running: " + po.Name)
