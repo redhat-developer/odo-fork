@@ -3,7 +3,7 @@
 # set -e -o pipefail
 
 date
-echo Started - Full build using runtime container folders
+echo Started - Update build using runtime container folders
 
 date
 echo cd /home/default/idp/src and listing
