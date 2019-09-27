@@ -78,13 +78,6 @@ func (b *BuildTask) SetPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 				},
 			},
 		}
-
-		/* volumeMounts = []corev1.VolumeMount{
-			{
-				Name:      "idp-volume",
-				MountPath: b.MountPath,
-			},
-		} */
 	}
 
 	return volumes, volumeMounts
