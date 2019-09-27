@@ -82,7 +82,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 	}
 	fmt.Printf("CWD: %s\n", cwd)
 
-	if o.reuseBuildContainer == true && o.useRuntimeContainer == false {
+	if o.reuseBuildContainer && !o.useRuntimeContainer {
 		// Create a Build Container for re-use if not present
 
 		// Create the Reusable Build Container deployment object
@@ -114,7 +114,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 			LabelSelector:  "app=" + ReusableBuildContainerInstance.Name,
 			TimeoutSeconds: &timeout,
 		}
-		po, _ := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Reusable Container is up...")
+		po, _ := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Reusable Container is up")
 		if po != nil {
 			fmt.Printf("Running pod found: %s...\n\n", po.Name)
 			ReusableBuildContainerInstance.PodName = po.Name
@@ -127,7 +127,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 			volumes, volumeMounts := ReusableBuildContainerInstance.SetPFEVolumes()
 			envVars := ReusableBuildContainerInstance.SetPFEEnvVars()
 
-			pod, err := o.Context.Client.CreatePod(ReusableBuildContainerInstance.Name, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.Image, ReusableBuildContainerInstance.Namespace, ReusableBuildContainerInstance.ServiceAccountName, ReusableBuildContainerInstance.Labels, volumes, volumeMounts, envVars, ReusableBuildContainerInstance.Privileged)
+			pod, err := o.Context.Client.CreatePod(ReusableBuildContainerInstance.Name, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.Image, ReusableBuildContainerInstance.ServiceAccountName, ReusableBuildContainerInstance.Labels, volumes, volumeMounts, envVars, ReusableBuildContainerInstance.Privileged)
 			if err != nil {
 				err = errors.New("Failed to create a pod " + ReusableBuildContainerInstance.Name)
 				return err
@@ -150,8 +150,21 @@ func (o *BuildIDPOptions) Run() (err error) {
 
 		fmt.Printf("The Reusable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
 
-		// Before Syncing, create the destination directory in the Build Container
-		command := []string{"/bin/sh", "-c", "mkdir -p " + ReusableBuildContainerInstance.MountPath + "/src"}
+		watchOptions = metav1.ListOptions{
+			LabelSelector: "app=" + ReusableBuildContainerInstance.Name,
+		}
+		err := o.syncProjectToRunningContainer(watchOptions, cwd, ReusableBuildContainerInstance.MountPath+"/src", ReusableBuildContainerInstance.ContainerName)
+		if err != nil {
+			fmt.Printf("Error occured while syncing to the pod %s: %s\n", ReusableBuildContainerInstance.PodName, err)
+			err = errors.New("Unable to sync to the pod: " + err.Error())
+			return err
+		}
+
+		// Execute the Build Tasks in the Build Container
+		command := []string{"/bin/sh", "-c", ReusableBuildContainerInstance.MountPath + "/src" + string(build.FullBuildTask)}
+		if o.buildTaskType == string(build.Incremental) {
+			command = []string{"/bin/sh", "-c", ReusableBuildContainerInstance.MountPath + "/src" + string(build.IncrementalBuildTask)}
+		}
 		output, stderr, err := o.Context.Client.ExecPodCmd(command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName)
 		if len(stderr) != 0 {
 			fmt.Println("Reusable Build Container stderr: ", stderr)
@@ -163,31 +176,8 @@ func (o *BuildIDPOptions) Run() (err error) {
 		}
 		fmt.Printf("Reusable Build Container Output: \n%s\n", output)
 
-		// Sync the project to the Build Container
-		err = o.Context.Client.CopyFile(cwd, ReusableBuildContainerInstance.PodName, ReusableBuildContainerInstance.MountPath+"/src", []string{}, []string{})
-		if err != nil {
-			err = errors.New("Unable to copy files to the pod " + ReusableBuildContainerInstance.PodName + ": " + err.Error())
-			return err
-		}
-
-		// Execute the Build Tasks in the Build Container
-		command = []string{"/bin/sh", "-c", ReusableBuildContainerInstance.MountPath + "/src" + string(build.FullBuildTask)}
-		if o.buildTaskType == string(build.Incremental) {
-			command = []string{"/bin/sh", "-c", ReusableBuildContainerInstance.MountPath + "/src" + string(build.IncrementalBuildTask)}
-		}
-		output, stderr, err = o.Context.Client.ExecPodCmd(command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName)
-		if len(stderr) != 0 {
-			fmt.Println("Reusable Build Container stderr: ", stderr)
-		}
-		if err != nil {
-			fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), ReusableBuildContainerInstance.PodName, err)
-			err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
-			return err
-		}
-		fmt.Printf("Reusable Build Container Output: \n%s\n", output)
-
 		fmt.Println("Finished executing the IDP Build Task in the Reusable Build Container...")
-	} else if o.reuseBuildContainer == false && o.useRuntimeContainer == false {
+	} else if !o.reuseBuildContainer && !o.useRuntimeContainer {
 		// Create a Kube Job for building
 		fmt.Println("Creating a Kube Job for building...")
 
@@ -288,9 +278,8 @@ func (o *BuildIDPOptions) Run() (err error) {
 	}
 
 	if o.useRuntimeContainer {
-		fmt.Println(">> MJF RUNTIME")
 		BuildTaskInstance.Image = string(build.RuntimeWithMavenJavaImage)
-		BuildTaskInstance.MountPath = "/home/default/emptydir"
+		BuildTaskInstance.MountPath = "/home/default/idp"
 		BuildTaskInstance.SubPath = ""
 	}
 
@@ -304,7 +293,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 			LabelSelector:  "app=javamicroprofiletemplate-selector,chart=javamicroprofiletemplate-1.0.0,release=" + BuildTaskInstance.Name,
 			TimeoutSeconds: &timeout,
 		}
-		po, _ := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Runtime Container has already been deployed...")
+		po, _ := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Runtime Container has already been deployed")
 		if po != nil {
 			fmt.Printf("Running pod found: %s...\n\n", po.Name)
 			BuildTaskInstance.PodName = po.Name
@@ -358,17 +347,20 @@ func (o *BuildIDPOptions) Run() (err error) {
 	}
 
 	if o.useRuntimeContainer {
-		// Sync the project to the Runtime Container on first deploy & update for the S2I model, skip if its a Build Container Model
-		err = o.Context.Client.CopyFile(cwd, BuildTaskInstance.PodName, BuildTaskInstance.MountPath, []string{}, []string{})
+		watchOptions := metav1.ListOptions{
+			LabelSelector: "app=javamicroprofiletemplate-selector,chart=javamicroprofiletemplate-1.0.0,release=" + BuildTaskInstance.Name,
+		}
+		err := o.syncProjectToRunningContainer(watchOptions, cwd, BuildTaskInstance.MountPath+"/src", BuildTaskInstance.ContainerName)
 		if err != nil {
-			err = errors.New("Unable to copy files to the pod " + BuildTaskInstance.PodName + ": " + err.Error())
+			fmt.Printf("Error occured while syncing to the pod %s: %s\n", BuildTaskInstance.PodName, err)
+			err = errors.New("Unable to sync to the pod: " + err.Error())
 			return err
 		}
 
 		// Execute the Runtime task in the Runtime Container
-		command := []string{"/bin/sh", "-c", BuildTaskInstance.MountPath + string(build.FullRunTask)}
+		command := []string{"/bin/sh", "-c", BuildTaskInstance.MountPath + "/src" + string(build.FullRunTask)}
 		if o.buildTaskType == string(build.Incremental) {
-			command = []string{"/bin/sh", "-c", BuildTaskInstance.MountPath + string(build.IncrementalRunTask)}
+			command = []string{"/bin/sh", "-c", BuildTaskInstance.MountPath + "/src" + string(build.IncrementalRunTask)}
 		}
 		output, stderr, err := o.Context.Client.ExecPodCmd(command, BuildTaskInstance.ContainerName, BuildTaskInstance.PodName)
 		if len(stderr) != 0 {
@@ -384,6 +376,41 @@ func (o *BuildIDPOptions) Run() (err error) {
 	}
 
 	return
+}
+
+// SyncProjectToRunningContainer Wait for the Pod to run, create the targetPath in the Pod and sync the project to the targetPath
+func (o *BuildIDPOptions) syncProjectToRunningContainer(watchOptions metav1.ListOptions, sourcePath, targetPath, containerName string) error {
+	// Wait for the pod to run
+	fmt.Printf("Waiting for pod to run\n")
+	po, err := o.Context.Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking if the container is up before syncing")
+	if err != nil {
+		err = errors.New("The Container failed to run")
+		return err
+	}
+	podName := po.Name
+	fmt.Println("The Pod is up and running: " + podName)
+
+	// Before Syncing, create the destination directory in the Build Container
+	command := []string{"/bin/sh", "-c", "rm -rf " + targetPath + " && mkdir -p " + targetPath}
+	output, stderr, err := o.Context.Client.ExecPodCmd(command, containerName, podName)
+	if len(stderr) != 0 {
+		fmt.Println("Container stderr: ", stderr)
+	}
+	if err != nil {
+		fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), podName, err)
+		err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
+		return err
+	}
+	fmt.Printf("Container Output: \n%s\n", output)
+
+	// Sync the project to the Runtime Container on first deploy & update for the S2I model, skip if its a Build Container Model
+	err = o.Context.Client.CopyFile(sourcePath, podName, targetPath, []string{}, []string{})
+	if err != nil {
+		err = errors.New("Unable to copy files to the pod " + podName + ": " + err.Error())
+		return err
+	}
+
+	return nil
 }
 
 // NewCmdBuild implements the udo catalog list idps command

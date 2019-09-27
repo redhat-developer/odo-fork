@@ -1,8 +1,6 @@
 package build
 
 import (
-	"fmt"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,12 +67,10 @@ func (b *BuildTask) SetPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 		},
 	}
 
-	fmt.Printf(">> MJF SetPFEVolumes %t\n", b.UseRuntime)
-	if b.UseRuntime == true {
-		fmt.Printf(">> MJF SetPFEVolumes inside %t\n", b.UseRuntime)
+	if b.UseRuntime {
 		volumes = []corev1.Volume{
 			{
-				Name: "emptydir-volume",
+				Name: "idp-volume",
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{
 						Medium: corev1.StorageMediumMemory,
@@ -83,12 +79,12 @@ func (b *BuildTask) SetPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 			},
 		}
 
-		volumeMounts = []corev1.VolumeMount{
+		/* volumeMounts = []corev1.VolumeMount{
 			{
-				Name:      "emptydir-volume",
+				Name:      "idp-volume",
 				MountPath: b.MountPath,
 			},
-		}
+		} */
 	}
 
 	return volumes, volumeMounts
