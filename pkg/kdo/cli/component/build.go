@@ -165,16 +165,12 @@ func (o *BuildIDPOptions) Run() (err error) {
 		if o.buildTaskType == string(build.Incremental) {
 			command = []string{"/bin/sh", "-c", ReusableBuildContainerInstance.MountPath + "/src" + string(build.IncrementalBuildTask)}
 		}
-		output, stderr, err := o.Context.Client.ExecPodCmd(command, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.PodName)
-		if len(stderr) != 0 {
-			fmt.Println("Reusable Build Container stderr: ", stderr)
-		}
+		err = o.Context.Client.ExecCMDInContainer(ReusableBuildContainerInstance.PodName, "", command, os.Stdout, os.Stdout, nil, false)
 		if err != nil {
 			fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), ReusableBuildContainerInstance.PodName, err)
 			err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
 			return err
 		}
-		fmt.Printf("Reusable Build Container Output: \n%s\n", output)
 
 		fmt.Println("Finished executing the IDP Build Task in the Reusable Build Container...")
 	} else if !o.reuseBuildContainer && !o.useRuntimeContainer {
@@ -362,17 +358,12 @@ func (o *BuildIDPOptions) Run() (err error) {
 		if o.buildTaskType == string(build.Incremental) {
 			command = []string{"/bin/sh", "-c", BuildTaskInstance.MountPath + "/src" + string(build.IncrementalRunTask)}
 		}
-		output, stderr, err := o.Context.Client.ExecPodCmd(command, BuildTaskInstance.ContainerName, BuildTaskInstance.PodName)
-		if len(stderr) != 0 {
-			fmt.Println("Runtime Container stderr: ", stderr)
-		}
+		err = o.Context.Client.ExecCMDInContainer(BuildTaskInstance.PodName, "", command, os.Stdout, os.Stdout, nil, false)
 		if err != nil {
 			fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), BuildTaskInstance.PodName, err)
 			err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the runtime container: " + err.Error())
 			return err
 		}
-
-		fmt.Printf("Runtime Container Output: \n%s\n", output)
 	}
 
 	return
@@ -392,16 +383,12 @@ func (o *BuildIDPOptions) syncProjectToRunningContainer(watchOptions metav1.List
 
 	// Before Syncing, create the destination directory in the Build Container
 	command := []string{"/bin/sh", "-c", "rm -rf " + targetPath + " && mkdir -p " + targetPath}
-	output, stderr, err := o.Context.Client.ExecPodCmd(command, containerName, podName)
-	if len(stderr) != 0 {
-		fmt.Println("Container stderr: ", stderr)
-	}
+	err = o.Context.Client.ExecCMDInContainer(podName, "", command, os.Stdout, os.Stdout, nil, false)
 	if err != nil {
 		fmt.Printf("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), podName, err)
 		err = errors.New("Unable to exec command " + strings.Join(command, " ") + " in the reusable build container: " + err.Error())
 		return err
 	}
-	fmt.Printf("Container Output: \n%s\n", output)
 
 	// Sync the project to the Runtime Container on first deploy & update for the S2I model, skip if its a Build Container Model
 	err = o.Context.Client.CopyFile(sourcePath, podName, targetPath, []string{}, []string{})
