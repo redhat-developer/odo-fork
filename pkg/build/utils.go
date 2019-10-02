@@ -35,4 +35,7 @@ const (
 	RuntimeContainerMountPathDefault string = "/config"
 	// RuntimeContainerMountPathEmptyDir  holds the empty dir mount path of the runtime task container
 	RuntimeContainerMountPathEmptyDir string = "/home/default/idp"
+
+	// IDPVolumeName holds the IDP volume name
+	IDPVolumeName string = "idp-volume"
 )

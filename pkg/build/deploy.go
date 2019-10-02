@@ -49,7 +49,7 @@ func (b *BuildTask) SetVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 
 	volumes := []corev1.Volume{
 		{
-			Name: "idp-volume",
+			Name: IDPVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: b.PVCName,
@@ -60,7 +60,7 @@ func (b *BuildTask) SetVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 
 	volumeMounts := []corev1.VolumeMount{
 		{
-			Name:      "idp-volume",
+			Name:      IDPVolumeName,
 			MountPath: b.MountPath,
 			SubPath:   b.SubPath,
 		},
@@ -69,7 +69,7 @@ func (b *BuildTask) SetVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 	if b.UseRuntime {
 		volumes = []corev1.Volume{
 			{
-				Name: "idp-volume",
+				Name: IDPVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					EmptyDir: &corev1.EmptyDirVolumeSource{
 						Medium: corev1.StorageMediumMemory,

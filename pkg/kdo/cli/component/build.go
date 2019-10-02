@@ -341,7 +341,7 @@ func NewCmdBuild(name, fullName string) *cobra.Command {
 	}
 
 	buildCmd.Flags().BoolVar(&o.useRuntimeContainer, "useRuntimeContainer", false, "Use the runtime container for IDP Builds")
-	buildCmd.Flags().BoolVar(&o.fullBuild, "fullBuild", false, "Uses the full build scenario for the IDP tasks")
+	buildCmd.Flags().BoolVar(&o.fullBuild, "fullBuild", false, "Force a full build")
 
 	return buildCmd
 }
