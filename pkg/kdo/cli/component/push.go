@@ -52,6 +52,7 @@ type PushOptions struct {
 	pushConfig bool
 	pushSource bool
 
+	localIDPRepo string
 	*genericclioptions.Context
 }
 
@@ -126,7 +127,7 @@ func (po *PushOptions) Validate() (err error) {
 	s := log.Spinner("Validating component")
 	defer s.End(false)
 
-	if err = component.ValidateComponentCreateRequest(po.Context.Client, po.localConfig.GetComponentSettings(), false); err != nil {
+	if err = component.ValidateComponentCreateRequest(po.Context.Client, po.localConfig.GetComponentSettings(), false, po.localIDPRepo); err != nil {
 		return err
 	}
 

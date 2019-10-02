@@ -13,4 +13,6 @@ const (
 	OutputFlagName = "output"
 	// ContextFlagName is the name of the flag allowing a user to specify the location of the component settings
 	ContextFlagName = "context"
+	// LocalIDPRepoFlagName is the name of the flag allowing a user to pass in (and use) a local idp repo
+	LocalIDPRepoFlagName = "local-repo"
 )

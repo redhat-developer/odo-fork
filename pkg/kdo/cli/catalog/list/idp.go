@@ -17,7 +17,8 @@ var idpsExample = `  # Get the supported Iterative-dev Packs`
 // ListIDPOptions encapsulates the options for the udo catalog list idp command
 type ListIDPOptions struct {
 	// list of known images
-	catalogList []catalog.CatalogEntry
+	localIDPRepo string
+	catalogList  []catalog.CatalogEntry
 }
 
 // NewListIDPOptions creates a new ListIDPOptions instance
@@ -27,7 +28,7 @@ func NewListIDPOptions() *ListIDPOptions {
 
 // Complete completes ListIDPOptions after they've been created
 func (o *ListIDPOptions) Complete(name string, cmd *cobra.Command, args []string) (err error) {
-	o.catalogList, err = catalog.List()
+	o.catalogList, err = catalog.List(o.localIDPRepo)
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func (o *ListIDPOptions) Run() (err error) {
 func NewCmdCatalogListIDPs(name, fullName string) *cobra.Command {
 	o := NewListIDPOptions()
 
-	return &cobra.Command{
+	cmd := cobra.Command{
 		Use:     name,
 		Short:   "List all IDPs available.",
 		Long:    "List all available Iterative-Dev Packs.",
@@ -71,5 +72,10 @@ func NewCmdCatalogListIDPs(name, fullName string) *cobra.Command {
 			genericclioptions.GenericRun(o, cmd, args)
 		},
 	}
+
+	// Add the flags to the command
+	genericclioptions.AddLocalRepoFlag(&cmd, &o.localIDPRepo)
+
+	return &cmd
 
 }

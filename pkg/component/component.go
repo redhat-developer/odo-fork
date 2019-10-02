@@ -488,7 +488,7 @@ func CheckComponentMandatoryParams(componentSettings config.ComponentSettings) e
 //	isCmpExistsCheck: boolean to indicate whether or not error out if component with same name already exists
 // Returns:
 //	errors if any
-func ValidateComponentCreateRequest(client *kclient.Client, componentSettings config.ComponentSettings, isCmpExistsCheck bool) (err error) {
+func ValidateComponentCreateRequest(client *kclient.Client, componentSettings config.ComponentSettings, isCmpExistsCheck bool, localIndexJson string) (err error) {
 
 	// Check the mandatory parameters first
 	err = CheckComponentMandatoryParams(componentSettings)
@@ -500,7 +500,7 @@ func ValidateComponentCreateRequest(client *kclient.Client, componentSettings co
 	_, componentType, _, _ := util.ParseComponentImageName(*componentSettings.Type)
 
 	// Check to see if the catalog type actually exists
-	exists, err := catalog.Exists(componentType)
+	exists, err := catalog.Exists(componentType, localIndexJson)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to create component of type %s", componentType)
 	}

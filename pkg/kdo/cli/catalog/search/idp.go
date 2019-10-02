@@ -16,10 +16,9 @@ var idpExample = `  # Search for an iterative-dev pack
 
 // SearchIDPOptions encapsulates the options for the udo catalog search idp command
 type SearchIDPOptions struct {
-	searchTerm string
-	idps       []string
-	// generic context options common to all commands
-	*genericclioptions.Context
+	searchTerm   string
+	localIDPRepo string
+	idps         []string
 }
 
 // NewSearchIDPOptions creates a new SearchIDPOptions instance
@@ -30,7 +29,7 @@ func NewSearchIDPOptions() *SearchIDPOptions {
 // Complete completes SearchIDPOptions after they've been created
 func (o *SearchIDPOptions) Complete(name string, cmd *cobra.Command, args []string) (err error) {
 	o.searchTerm = args[0]
-	o.idps, err = catalog.Search(o.searchTerm)
+	o.idps, err = catalog.Search(o.searchTerm, o.localIDPRepo)
 	return err
 }
 
@@ -55,7 +54,8 @@ func (o *SearchIDPOptions) Run() (err error) {
 // NewCmdCatalogSearchIDP implements the udo catalog search idp command
 func NewCmdCatalogSearchIDP(name, fullName string) *cobra.Command {
 	o := NewSearchIDPOptions()
-	return &cobra.Command{
+
+	cmd := cobra.Command{
 		Use:   name,
 		Short: "Search Iterative-Dev Pack in catalog",
 		Long: `Search Iterative-Dev Pack in catalog.
@@ -69,4 +69,9 @@ Iterative-Dev Packs.
 			genericclioptions.GenericRun(o, cmd, args)
 		},
 	}
+
+	// Adds flags to the command
+	genericclioptions.AddLocalRepoFlag(&cmd, &o.localIDPRepo)
+
+	return &cmd
 }

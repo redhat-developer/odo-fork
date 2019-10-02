@@ -26,3 +26,13 @@ func AddNowFlag(cmd *cobra.Command, setValueTo *bool) {
 		cmd.Flags().Bool("now", false, helpMessage)
 	}
 }
+
+// AddLocalRepoFlag adds 'logal-repo' to the given cobra command, allowing users to pass in a local IDP index.json file
+func AddLocalRepoFlag(cmd *cobra.Command, setValueTo *string) {
+	helpMessage := "Path to a local index.json representing an IDP repo (optional)"
+	if setValueTo != nil {
+		cmd.Flags().StringVar(setValueTo, LocalIDPRepoFlagName, "", helpMessage)
+	} else {
+		cmd.Flags().String(LocalIDPRepoFlagName, "", helpMessage)
+	}
+}

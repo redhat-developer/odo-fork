@@ -49,6 +49,7 @@ type CreateOptions struct {
 	wait              bool
 	interactive       bool
 	now               bool
+	localIDPRepo      string
 	*CommonPushOptions
 }
 
@@ -445,7 +446,7 @@ func (co *CreateOptions) Validate() (err error) {
 	s := log.Spinner("Validating component")
 	defer s.End(false)
 
-	if err := component.ValidateComponentCreateRequest(co.Context.Client, co.componentSettings, false); err != nil {
+	if err := component.ValidateComponentCreateRequest(co.Context.Client, co.componentSettings, false, co.localIDPRepo); err != nil {
 		return err
 	}
 
@@ -471,9 +472,18 @@ func (co *CreateOptions) Run() (err error) {
 
 	// Download the IDP.yaml
 	// We've already validated that the idp with the specified type exists, but should still check for the error to be safe
-	catalogEntry, err := catalog.Get(*co.componentSettings.Type)
-	devPackURL := catalog.DefaultIDPRepo + catalogEntry.Devpack["self"]
-	err = idp.DownloadIDPYaml(devPackURL)
+	catalogEntry, err := catalog.Get(*co.componentSettings.Type, co.localIDPRepo)
+
+	// If using the remote IDP repository, pull down the IDP yaml from it
+	if co.localIDPRepo == "" {
+		devPackURL := catalog.DefaultIDPRepo + catalogEntry.Devpack["self"]
+		err = idp.DownloadIDP(devPackURL)
+	} else {
+		// If using a local IDP repo, copy the idp.yaml into the .udo folder
+		parentFolder := filepath.Dir(co.localIDPRepo)
+		devPackPath := filepath.Join(parentFolder, catalogEntry.Devpack["self"])
+		err = idp.CopyLocalIDP(devPackPath)
+	}
 	if err != nil {
 		return err
 	}
@@ -595,6 +605,7 @@ func NewCmdCreate(name, fullName string) *cobra.Command {
 
 	// Adding `--now` flag
 	genericclioptions.AddNowFlag(componentCreateCmd, &co.now)
+	genericclioptions.AddLocalRepoFlag(componentCreateCmd, &co.localIDPRepo)
 	//Adding `--project` flag
 	// projectCmd.AddProjectFlag(componentCreateCmd)
 	//Adding `--application` flag

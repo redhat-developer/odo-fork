@@ -26,10 +26,18 @@ type CatalogEntry struct {
 }
 
 // List lists all the available Iterative-Dev Packs
-func List() ([]CatalogEntry, error) {
-	// See if we have an index.json already cached
+func List(localIndexJSON string) ([]CatalogEntry, error) {
+
 	var idpList []CatalogEntry
-	indexJSONFile := path.Join(os.TempDir(), ".udo", "index.json")
+
+	// If a local index.json file wasn't passed in, see if one is cached
+	var indexJSONFile string
+	if localIndexJSON == "" {
+		indexJSONFile = path.Join(os.TempDir(), ".udo", "index.json")
+	} else {
+		indexJSONFile = localIndexJSON
+	}
+
 	// Load the index.json file into memory
 	var jsonBytes []byte
 	if _, err := os.Stat(indexJSONFile); os.IsNotExist(err) {
@@ -53,9 +61,9 @@ func List() ([]CatalogEntry, error) {
 }
 
 // Search searches for the IDP in the catalog
-func Search(name string) ([]string, error) {
+func Search(name string, localIndexJSON string) ([]string, error) {
 	var result []string
-	idpList, err := List()
+	idpList, err := List(localIndexJSON)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list Iterative-Dev Packs")
 	}
@@ -72,9 +80,9 @@ func Search(name string) ([]string, error) {
 }
 
 // Exists returns true if the given iterative-dev pack type is valid, false if not
-func Exists(idpName string) (bool, error) {
+func Exists(idpName string, localIndexJSON string) (bool, error) {
 
-	catalogList, err := List()
+	catalogList, err := List(localIndexJSON)
 	if err != nil {
 		return false, errors.Wrapf(err, "unable to list catalog")
 	}
@@ -88,8 +96,8 @@ func Exists(idpName string) (bool, error) {
 }
 
 // Get returns the first IDP matching the specified name, if none are found, an error is returned
-func Get(name string) (*CatalogEntry, error) {
-	idpList, err := List()
+func Get(name string, localIndexJSON string) (*CatalogEntry, error) {
+	idpList, err := List(localIndexJSON)
 	if err != nil {
 		return nil, err
 	}
