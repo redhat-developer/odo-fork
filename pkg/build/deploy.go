@@ -32,8 +32,8 @@ type BuildTask struct {
 // CreateDeploy creates a Kubernetes deployment
 func (b *BuildTask) CreateDeploy() appsv1.Deployment {
 
-	volumes, volumeMounts := b.SetPFEVolumes()
-	envVars := b.SetPFEEnvVars()
+	volumes, volumeMounts := b.SetVolumes()
+	envVars := b.SetEnvVars()
 
 	return b.generateDeployment(volumes, volumeMounts, envVars)
 }
@@ -44,9 +44,8 @@ func (b *BuildTask) CreateService() corev1.Service {
 	return b.generateService()
 }
 
-// SetPFEVolumes returns the 3 volumes & corresponding volume mounts required by the PFE container:
-// project workspace, buildah volume, and the docker registry secret (the latter of which is optional)
-func (b *BuildTask) SetPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
+// SetVolumes sets the IDP task volumes either PVC or Empty Dir depending on the task
+func (b *BuildTask) SetVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 
 	volumes := []corev1.Volume{
 		{
@@ -83,8 +82,8 @@ func (b *BuildTask) SetPFEVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 	return volumes, volumeMounts
 }
 
-// SetPFEEnvVars sets the env var for the component pod
-func (b *BuildTask) SetPFEEnvVars() []corev1.EnvVar {
+// SetEnvVars sets the env var for the component pod
+func (b *BuildTask) SetEnvVars() []corev1.EnvVar {
 	booleanTrue := bool(true)
 
 	envVars := []corev1.EnvVar{
@@ -170,7 +169,7 @@ func (b *BuildTask) SetPFEEnvVars() []corev1.EnvVar {
 		},
 	}
 
-	if b.Kind == string(ReusableBuildContainer) {
+	if b.Kind == ReusableBuildContainer {
 		envVars = []corev1.EnvVar{}
 	}
 
@@ -198,7 +197,7 @@ func (b *BuildTask) generateDeployment(volumes []corev1.Volume, volumeMounts []c
 			Env:          envVars,
 		},
 	}
-	if b.Kind == string(ReusableBuildContainer) || b.UseRuntime {
+	if b.Kind == ReusableBuildContainer || b.UseRuntime {
 		container = []corev1.Container{
 			{
 				Name:            containerName,
@@ -277,7 +276,7 @@ func (b *BuildTask) generateService() corev1.Service {
 		},
 	}
 
-	if b.Kind == string(ReusableBuildContainer) {
+	if b.Kind == ReusableBuildContainer {
 		ports = []corev1.ServicePort{
 			{
 				Port: int32(port1),
