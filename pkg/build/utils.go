@@ -25,8 +25,8 @@ const (
 	// BuildContainerMountPath  holds the mount path of the build task container
 	BuildContainerMountPath string = "/data/idp/"
 
-	// RuntimeConainerImage is the default WebSphere Liberty Runtime image
-	RuntimeConainerImage string = "websphere-liberty:19.0.0.3-webProfile7"
+	// RuntimeContainerImage is the default WebSphere Liberty Runtime image
+	RuntimeContainerImage string = "websphere-liberty:19.0.0.3-webProfile7"
 	// RuntimeContainerImageWithBuildTools is the default WebSphere Liberty Runtime image with Maven and Java installed
 	RuntimeContainerImageWithBuildTools string = "maysunfaisal/libertymvnjava"
 	// RuntimeContainerName is the runtime container name
@@ -36,24 +36,3 @@ const (
 	// RuntimeContainerMountPathEmptyDir  holds the empty dir mount path of the runtime task container
 	RuntimeContainerMountPathEmptyDir string = "/home/default/idp"
 )
-
-// GetIDPPVC retrieves the PVC (Persistent Volume Claim) associated with the Iterative Development Pack
-// func GetIDPPVC(client *kclient.Client, namespace string, labels string) string {
-// 	var pvcName string
-// 	clientset := client.KubeClient
-
-// 	PVCs, err := clientset.CoreV1().PersistentVolumeClaims(namespace).List(metav1.ListOptions{
-// 		LabelSelector: labels,
-// 	})
-// 	if err != nil || PVCs == nil {
-// 		fmt.Printf("Error, unable to retrieve PVCs: %v\n", err)
-// 		os.Exit(1)
-// 	} else if len(PVCs.Items) == 1 {
-// 		pvcName = PVCs.Items[0].GetName()
-// 	} else {
-// 		// We couldn't find the workspace PVC, use a default value
-// 		pvcName = "claim-che-workspace"
-// 	}
-
-// 	return pvcName
-// }

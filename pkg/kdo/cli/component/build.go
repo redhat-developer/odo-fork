@@ -65,7 +65,12 @@ func (o *BuildIDPOptions) Run() (err error) {
 	glog.V(0).Infof("Namespace: %s\n", namespace)
 
 	idpClaimName := ""
-	PVCs, _ := o.Context.Client.GetPVCsFromSelector("app=idp")
+	PVCs, err := o.Context.Client.GetPVCsFromSelector("app=idp")
+	if err != nil {
+		glog.V(0).Infof("Error occured while getting the PVC")
+		err = errors.New("Unable to get the PVC: " + err.Error())
+		return err
+	}
 	if len(PVCs) == 1 {
 		idpClaimName = PVCs[0].GetName()
 	}
@@ -180,7 +185,7 @@ func (o *BuildIDPOptions) Run() (err error) {
 		UseRuntime:         o.useRuntimeContainer,
 		Kind:               build.Component,
 		Name:               strings.ToLower(o.projectName) + "-runtime",
-		Image:              build.RuntimeConainerImage,
+		Image:              build.RuntimeContainerImage,
 		ContainerName:      build.RuntimeContainerName,
 		Namespace:          namespace,
 		PVCName:            idpClaimName,

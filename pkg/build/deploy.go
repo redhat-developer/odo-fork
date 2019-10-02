@@ -44,7 +44,7 @@ func (b *BuildTask) CreateService() corev1.Service {
 	return b.generateService()
 }
 
-// SetVolumes sets the IDP task volumes either PVC or Empty Dir depending on the task
+// SetVolumes sets the IDP task volumes with either the PVC or the Empty Dir depending on the task
 func (b *BuildTask) SetVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 
 	volumes := []corev1.Volume{
@@ -84,94 +84,8 @@ func (b *BuildTask) SetVolumes() ([]corev1.Volume, []corev1.VolumeMount) {
 
 // SetEnvVars sets the env var for the component pod
 func (b *BuildTask) SetEnvVars() []corev1.EnvVar {
-	booleanTrue := bool(true)
 
-	envVars := []corev1.EnvVar{
-		{
-			Name:  "PORT",
-			Value: "9080",
-		},
-		{
-			Name:  "APPLICATION_NAME",
-			Value: "cw-maysunliberty2-6c1b1ce0-cb4c-11e9-be96",
-		},
-		{
-			Name:  "PROJECT_NAME",
-			Value: "maysunliberty2",
-		},
-		{
-			Name:  "LOG_FOLDER",
-			Value: "maysunliberty2-6c1b1ce0-cb4c-11e9-be96-bfc50f05726d",
-		},
-		{
-			Name:  "IN_K8",
-			Value: "true",
-		},
-		{
-			Name: "IBM_APM_SERVER_URL",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "apm-server-config",
-					},
-					Key:      "ibm_apm_server_url",
-					Optional: &booleanTrue,
-				},
-			},
-		},
-		{
-			Name: "IBM_APM_KEYFILE",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "apm-server-config",
-					},
-					Key:      "ibm_apm_keyfile_password",
-					Optional: &booleanTrue,
-				},
-			},
-		},
-		{
-			Name: "IBM_APM_INGRESS_URL",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "apm-server-config",
-					},
-					Key:      "ibm_apm_ingress_url",
-					Optional: &booleanTrue,
-				},
-			},
-		},
-		{
-			Name: "IBM_APM_KEYFILE_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "apm-server-config",
-					},
-					Key:      "ibm_apm_keyfile_password",
-					Optional: &booleanTrue,
-				},
-			},
-		},
-		{
-			Name: "IBM_APM_ACCESS_TOKEN",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "apm-server-config",
-					},
-					Key:      "ibm_apm_access_token",
-					Optional: &booleanTrue,
-				},
-			},
-		},
-	}
-
-	if b.Kind == ReusableBuildContainer {
-		envVars = []corev1.EnvVar{}
-	}
+	envVars := []corev1.EnvVar{}
 
 	return envVars
 }
