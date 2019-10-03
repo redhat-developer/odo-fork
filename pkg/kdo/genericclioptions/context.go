@@ -5,10 +5,12 @@ import (
 	"os"
 
 	"github.com/golang/glog"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/redhat-developer/odo-fork/pkg/component"
 	"github.com/redhat-developer/odo-fork/pkg/config"
+	"github.com/redhat-developer/odo-fork/pkg/idp"
 	"github.com/redhat-developer/odo-fork/pkg/kclient"
 	"github.com/redhat-developer/odo-fork/pkg/kdo/util"
 	"github.com/redhat-developer/odo-fork/pkg/log"
@@ -276,6 +278,17 @@ func newContext(command *cobra.Command, createAppIfNeeded bool) *Context {
 	// resolve output flag
 	outputFlag := FlagValueIfSet(command, OutputFlagName)
 
+	var devPack *idp.IDP
+	// Get the IDP for the component if the config file exists
+	if lci.ConfigFileExists() {
+		devPack, err = idp.Get()
+		// If the config file exists but there's a problem reading the idp.yaml then there's a problem
+		if err != nil {
+			errors.Wrapf(err, "Unable to read the idp.yaml for %s from disk", lci.GetName())
+			util.LogErrorAndExit(err, "")
+		}
+	}
+
 	// create the internal context representation based on calculated values
 	internalCxt := internalCxt{
 		Client:      client,
@@ -283,6 +296,7 @@ func newContext(command *cobra.Command, createAppIfNeeded bool) *Context {
 		Application: app,
 		OutputFlag:  outputFlag,
 		command:     command,
+		DevPack:     devPack,
 	}
 
 	// create a context from the internal representation
@@ -320,6 +334,7 @@ type internalCxt struct {
 	Application string
 	cmp         string
 	OutputFlag  string
+	DevPack     *idp.IDP
 }
 
 // Component retrieves the optionally specified component or the current one if it is set. If no component is set, exit with
