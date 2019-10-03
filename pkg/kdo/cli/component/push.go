@@ -127,10 +127,6 @@ func (po *PushOptions) Validate() (err error) {
 	s := log.Spinner("Validating component")
 	defer s.End(false)
 
-	if err = component.ValidateComponentCreateRequest(po.Context.Client, po.localConfig.GetComponentSettings(), false, po.localIDPRepo); err != nil {
-		return err
-	}
-
 	isCmpExists, err := component.Exists(po.Context.Client, po.localConfig.GetName(), po.localConfig.GetApplication())
 	if err != nil {
 		return err
