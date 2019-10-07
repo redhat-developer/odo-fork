@@ -20,7 +20,6 @@ import (
 	"github.com/redhat-developer/odo-fork/pkg/project"
 
 	kdoutil "github.com/redhat-developer/odo-fork/pkg/kdo/util"
-	util "github.com/redhat-developer/odo-fork/pkg/util"
 
 	ktemplates "k8s.io/kubectl/pkg/util/templates"
 )
@@ -48,6 +47,7 @@ type PushOptions struct {
 	componentContext string
 	client           *kclient.Client
 	localConfig      *config.LocalConfigInfo
+	fullBuild        bool
 
 	pushConfig bool
 	pushSource bool
@@ -165,11 +165,11 @@ func (po *PushOptions) createCmpIfNotExistsAndApplyCmpConfig(stdout io.Writer) e
 	// If the component does not exist, we will create it for the first time.
 	if !isCmpExists {
 
-		s = log.Spinner("Creating component")
-		defer s.End(false)
+		// s = log.Spinner("Creating component")
+		// defer s.End(false)
 
 		// Classic case of component creation
-		if err = component.CreateComponent(po.Context.Client, *po.localConfig, po.componentContext, stdout, po.Context.DevPack); err != nil {
+		if err = component.CreateComponent(po.Context.Client, *po.localConfig, po.componentContext, stdout, po.Context.DevPack, po.fullBuild); err != nil {
 			log.Errorf(
 				"Failed to create component with name %s. Please use `odo config view` to view settings used to create component. Error: %+v",
 				cmpName,
@@ -178,7 +178,7 @@ func (po *PushOptions) createCmpIfNotExistsAndApplyCmpConfig(stdout io.Writer) e
 			os.Exit(1)
 		}
 
-		s.End(true)
+		// s.End(true)
 	}
 
 	// TODO-KDO: Add when implementing update
@@ -214,39 +214,39 @@ func (po *PushOptions) Run() (err error) {
 	// 	return errors.Wrap(err, "unable to retrieve OS source path to source location")
 	// }
 
-	cmpName := po.localConfig.GetName()
-	appName := po.localConfig.GetApplication()
-	log.Infof("\nPushing to component %s of type %s", cmpName, po.sourceType)
+	// cmpName := po.localConfig.GetName()
+	// appName := po.localConfig.GetApplication()
+	// log.Infof("\nPushing to component %s of type %s", cmpName, po.sourceType)
 
-	switch po.sourceType {
-	case config.LOCAL:
-		glog.V(4).Infof("Copying directory %s to pod", po.sourcePath)
-		err = component.PushLocal(
-			po.Context.Client,
-			cmpName,
-			appName,
-			po.sourcePath,
-			os.Stdout,
-			[]string{},
-			[]string{},
-			true,
-			util.GetAbsGlobExps(po.sourcePath, po.ignores),
-			po.show,
-			component.ContainerAttributes{ // TODO-KDO: Retrieve container attributes from IDP
-				SrcPath:      "/projects",
-				WorkingPaths: []string{""},
-			},
-		)
+	// switch po.sourceType {
+	// case config.LOCAL:
+	// 	glog.V(4).Infof("Copying directory %s to pod", po.sourcePath)
+	// 	err = component.PushLocal(
+	// 		po.Context.Client,
+	// 		cmpName,
+	// 		appName,
+	// 		po.sourcePath,
+	// 		os.Stdout,
+	// 		[]string{},
+	// 		[]string{},
+	// 		true,
+	// 		util.GetAbsGlobExps(po.sourcePath, po.ignores),
+	// 		po.show,
+	// 		component.ContainerAttributes{ // TODO-KDO: Retrieve container attributes from IDP
+	// 			SrcPath:      "/projects",
+	// 			WorkingPaths: []string{""},
+	// 		},
+	// 	)
 
-		if err != nil {
-			return errors.Wrapf(err, fmt.Sprintf("Failed to push component: %v", cmpName))
-		}
+	// 	if err != nil {
+	// 		return errors.Wrapf(err, fmt.Sprintf("Failed to push component: %v", cmpName))
+	// 	}
 
-	default:
-		if err != nil {
-			return errors.Wrapf(err, fmt.Sprintf("Failed to push component %v because the source type is not recognized", cmpName))
-		}
-	}
+	// default:
+	// 	if err != nil {
+	// 		return errors.Wrapf(err, fmt.Sprintf("Failed to push component %v because the source type is not recognized", cmpName))
+	// 	}
+	// }
 
 	log.Success("Changes successfully pushed to component")
 	return
@@ -279,6 +279,7 @@ func NewCmdPush(name, fullName string) *cobra.Command {
 	pushCmd.Flags().StringSliceVar(&po.ignores, "ignore", []string{}, "Files or folders to be ignored via glob expressions.")
 	pushCmd.Flags().BoolVar(&po.pushConfig, "config", false, "Use config flag to only apply config on to cluster")
 	pushCmd.Flags().BoolVar(&po.pushSource, "source", false, "Use source flag to only push latest source on to cluster")
+	pushCmd.Flags().BoolVar(&po.fullBuild, "fullBuild", false, "Force a full build")
 
 	// Add a defined annotation in order to appear in the help menu
 	pushCmd.Annotations = map[string]string{"command": "component"}
