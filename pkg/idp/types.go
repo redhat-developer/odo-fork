@@ -33,34 +33,43 @@ type SpecDev struct {
 
 // SpecRuntime defines the runtime image to be used in the IDP, contains info such as docker image, ports, env vars, etc.
 type SpecRuntime struct {
-	Image      string             `yaml:"image"`
-	Endpoints  RuntimeEndpoints   `yaml:"endpoints"`
-	Ports      RuntimePorts       `yaml:"ports"`
-	Logs       []Logs             `yaml:"logs"`
-	Env        []EnvVar           `yaml:"env"`
-	Kubernetes KubernetesSettings `yaml:"kubernetes"`
+	Image                        string             `yaml:"image"`
+	OverrideEntrypointTailToFile string             `yaml:"overrideEntrypointTailToFile"`
+	Endpoints                    RuntimeEndpoints   `yaml:"endpoints"`
+	Ports                        RuntimePorts       `yaml:"ports"`
+	Logs                         []Logs             `yaml:"logs"`
+	Env                          []EnvVar           `yaml:"env"`
+	VolumeMappings               []VolumeMappings   `yaml:"volumeMappings"`
+	Kubernetes                   KubernetesSettings `yaml:"kubernetes"`
 }
 
 // SpecShared represents shared settings and values to be used across the runtime and build containers
 type SpecShared struct {
-	Tasks   SharedTasks     `yaml:"tasks"`
-	Volumes []SharedVolumes `yaml:"volumes"`
-	Env     []EnvVar        `yaml:"env"`
+	Containers []SharedContainers `yaml:"containers"`
+	Volumes    []SharedVolumes    `yaml:"volumes"`
+	Env        []EnvVar           `yaml:"env"`
 }
 
 // SpecTask represents an IDP build task/step
 type SpecTask struct {
-	Name             string             `yaml:"name"`
-	BuildImage       string             `yaml:"buildImage"`
-	Command          string             `yaml:"command"`
-	WorkingDirectory string             `yaml:"workingDirectory"`
-	Logs             []Logs             `yaml:"logs"`
-	VolumeMappings   []Mappings         `yaml:"volumeMappings"`
-	RepoMappings     []Mappings         `yaml:"repoMappings"`
-	SourceMappings   []Mappings         `yaml:"sourceMappings"`
-	RunAsUser        int                `yaml:"runAsUser"`
-	Kubernetes       KubernetesSettings `yaml:"kubernetes"`
-	Env              []EnvVar           `yaml:"env"`
+	Name             string         `yaml:"name"`
+	Type             string         `yaml:"type"`
+	Container        string         `yaml:"container"`
+	Command          []string       `yaml:"command"`
+	WorkingDirectory string         `yaml:"workingDirectory"`
+	Logs             []Logs         `yaml:"logs"`
+	RepoMappings     []RepoMappings `yaml:"repoMappings"`
+	SourceMappings   SourceMapping  `yaml:"sourceMapping"`
+	Env              []EnvVar       `yaml:"env"`
+}
+
+type SharedContainers struct {
+	Name           string             `yaml:"name"`
+	Image          string             `yaml:"image"`
+	VolumeMappings []VolumeMappings   `yaml:"volumeMappings"`
+	Env            []EnvVar           `yaml:"env"`
+	Privileged     bool               `yaml:"privileged"`
+	Kubernetes     KubernetesSettings `yaml:"kubernetes"`
 }
 
 type SpecScenario struct {
@@ -70,16 +79,21 @@ type SpecScenario struct {
 
 // KubernetesSettings represents readiness/liveness probes for use on Kube
 type KubernetesSettings struct {
-	LivenessProbe  KubeProbe `yaml:"livenessProbe"`
-	ReadinessProbe KubeProbe `yaml:"readinessProbe"`
-	MemoryLimit    string    `yaml:"memoryLimit"`
-	RunAsUser      int       `yaml:"runAsUser"`
+	LivenessProbe  KubeProbe     `yaml:"livenessProbe"`
+	ReadinessProbe KubeProbe     `yaml:"readinessProbe"`
+	Requests       KubeResources `yaml:"requests"`
+	Limits         KubeResources `yaml:"limits"`
 }
 
 // KubeProbe represents a kubernetes liveness / readiness probe
 type KubeProbe struct {
-	InitialDelaySeconds int `yaml:"initialDelay"`
+	InitialDelaySeconds int `yaml:"initialDelaySeconds"`
 	TimeoutSeconds      int `yaml:"timeoutSeconds"`
+}
+
+type KubeResources struct {
+	Memory int `yaml:"memory"`
+	CPU    int `yaml:"cpu"`
 }
 
 // Maintainer represents the maintainer(s) of an Iterative-Dev Pack
@@ -130,19 +144,11 @@ type Logs struct {
 	Path string `yaml:"path"`
 }
 
-// SharedTasks describes common settings to be applied to all of the tasks in the IDP.yaml
-type SharedTasks struct {
-	DisposeOfSharedContainersOnTaskComplete bool   `yaml:"disposeOfSharedContainersOnTaskComplete"`
-	DisposeOnScenarioComplete               string `yaml:"disposeOnScenarioComplete"`
-	IdleTaskContainerTimeout                int    `yaml:"idleTaskContainerTimeout"`
-}
-
 // SharedVolumes tells udo what RWX volumes to create (and how many) for the specific IDP
 // This does not override any volumes that the use may add with `udo volume ...`
 type SharedVolumes struct {
-	Name   string `yaml:"name"`
-	Labels string `yaml:"labels"`
-	size   int    `yaml:"size"`
+	Name string `yaml:"name"`
+	size int    `yaml:"size"`
 }
 
 // EnvVar represents a key/value mapping of environment vars to use in runtime and build containers
@@ -151,8 +157,18 @@ type EnvVar struct {
 	value string `yaml:"value"`
 }
 
-type Mappings struct {
+type RepoMappings struct {
 	SrcPath       string `yaml:"srcPath"`
 	DestPath      string `yaml:"destPath"`
 	SetExecuteBit bool   `yaml:"setExecuteBit"`
+}
+
+type SourceMapping struct {
+	DestPath      string `yaml:"destPath"`
+	SetExecuteBit bool   `yaml:"setExecuteBit"`
+}
+
+type VolumeMappings struct {
+	VolumeName    string `yaml:"volumeName"`
+	ContainerPath string `yaml:"containerPath"`
 }
