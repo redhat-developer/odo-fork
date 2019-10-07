@@ -6,7 +6,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"github.com/redhat-developer/odo-fork/pkg/build"
 	"github.com/redhat-developer/odo-fork/pkg/idp"
 	"github.com/redhat-developer/odo-fork/pkg/kclient"
 	corev1 "k8s.io/api/core/v1"
@@ -48,7 +47,7 @@ func RunTaskExec(Client *kclient.Client, projectName string, fullBuild bool, dev
 		UseRuntime:         true,
 		Kind:               ComponentType,
 		Name:               strings.ToLower(projectName) + "-runtime",
-		Image:              RuntimeContainerImageWithBuildTools,
+		Image:              devPack.Spec.Runtime.Image,
 		ContainerName:      RuntimeContainerName,
 		Namespace:          namespace,
 		PVCName:            "",
@@ -56,7 +55,7 @@ func RunTaskExec(Client *kclient.Client, projectName string, fullBuild bool, dev
 		// OwnerReferenceName: ownerReferenceName,
 		// OwnerReferenceUID:  ownerReferenceUID,
 		Privileged: true,
-		MountPath:  RuntimeContainerMountPathEmptyDir,
+		MountPath:  devPack.Spec.Runtime.VolumeMappings[0].ContainerPath,
 		SubPath:    "",
 	}
 
@@ -129,17 +128,53 @@ func RunTaskExec(Client *kclient.Client, projectName string, fullBuild bool, dev
 		return err
 	}
 
-	task := RuntimeTaskInstance.MountPath + "/src" + build.FullRunTask
-	if !fullBuild {
-		task = RuntimeTaskInstance.MountPath + "/src" + build.IncrementalRunTask
+	if fullBuild {
+		for _, scenario := range devPack.Spec.Scenarios {
+			if scenario.Name == "full-build" {
+				for _, scenariotask := range scenario.Tasks {
+					for _, task := range devPack.Spec.Tasks {
+						if scenariotask == task.Name {
+							err = executetask(Client, strings.Join(task.Command, " "), RuntimeTaskInstance.PodName)
+							if err != nil {
+								glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), RuntimeTaskInstance.PodName, err)
+								err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
+	} else {
+		for _, scenario := range devPack.Spec.Scenarios {
+			if scenario.Name == "incremental-build" {
+				for _, scenariotask := range scenario.Tasks {
+					for _, task := range devPack.Spec.Tasks {
+						if scenariotask == task.Name {
+							err = executetask(Client, strings.Join(task.Command, " "), RuntimeTaskInstance.PodName)
+							if err != nil {
+								glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), RuntimeTaskInstance.PodName, err)
+								err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
-	err = executetask(Client, task, RuntimeTaskInstance.PodName)
-	if err != nil {
-		glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", task, RuntimeTaskInstance.PodName, err)
-		err = errors.New("Unable to exec command " + task + " in the runtime container: " + err.Error())
-		return err
-	}
+	// task := RuntimeTaskInstance.MountPath + "/src" + build.FullRunTask
+	// if !fullBuild {
+	// 	task = RuntimeTaskInstance.MountPath + "/src" + build.IncrementalRunTask
+	// }
+
+	// err = executetask(Client, task, RuntimeTaskInstance.PodName)
+	// if err != nil {
+	// 	glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", task, RuntimeTaskInstance.PodName, err)
+	// 	err = errors.New("Unable to exec command " + task + " in the runtime container: " + err.Error())
+	// 	return err
+	// }
 
 	return nil
 }
