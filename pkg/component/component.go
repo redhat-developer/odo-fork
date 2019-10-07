@@ -29,6 +29,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // componentSourceURLAnnotation is an source url from which component was build
@@ -71,6 +72,28 @@ func GetComponentDir(path string, paramType config.SrcType) (string, error) {
 	}
 	retVal = strings.TrimSpace(util.GetDNS1123Name(strings.ToLower(retVal)))
 	return retVal, nil
+}
+
+//BuildTask is a struct of essential data
+type BuildTask struct {
+	UseRuntime         bool
+	Kind               string
+	Name               string
+	Image              string
+	ContainerName      string
+	PodName            string
+	Namespace          string
+	WorkspaceID        string
+	PVCName            string
+	ServiceAccountName string
+	PullSecret         string
+	OwnerReferenceName string
+	OwnerReferenceUID  types.UID
+	Privileged         bool
+	Ingress            string
+	MountPath          string
+	SubPath            string
+	Labels             map[string]string
 }
 
 // GetDefaultComponentName generates a unique component name
