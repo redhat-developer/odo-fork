@@ -6,14 +6,14 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"github.com/redhat-developer/odo-fork/pkg/build"
+	"github.com/redhat-developer/odo-fork/pkg/idp"
 	"github.com/redhat-developer/odo-fork/pkg/kclient"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // BuildTaskExec is the Build Task execution implementation of the IDP build task
-func BuildTaskExec(Client *kclient.Client, projectName string, fullBuild bool) error {
+func BuildTaskExec(Client *kclient.Client, projectName string, fullBuild bool, devPack *idp.IDP) error {
 	clientset := Client.KubeClient
 	namespace := Client.Namespace
 
@@ -47,15 +47,15 @@ func BuildTaskExec(Client *kclient.Client, projectName string, fullBuild bool) e
 		UseRuntime:         false,
 		Kind:               ReusableBuildContainerType,
 		Name:               strings.ToLower(projectName) + "-reusable-build-container",
-		Image:              build.BuildContainerImage,
-		ContainerName:      build.BuildContainerName,
+		Image:              devPack.Spec.Shared.Containers[0].Image,
+		ContainerName:      devPack.Spec.Shared.Containers[0].Name,
 		Namespace:          namespace,
 		PVCName:            idpClaimName,
 		ServiceAccountName: serviceAccountName,
 		// OwnerReferenceName: ownerReferenceName,
 		// OwnerReferenceUID:  ownerReferenceUID,
 		Privileged: true,
-		MountPath:  BuildContainerMountPath,
+		MountPath:  devPack.Spec.Shared.Containers[0].VolumeMappings[0].ContainerPath,
 		SubPath:    "projects/" + projectName,
 	}
 	ReusableBuildContainerInstance.Labels = map[string]string{
@@ -117,23 +117,59 @@ func BuildTaskExec(Client *kclient.Client, projectName string, fullBuild bool) e
 		return err
 	}
 
-	task := ReusableBuildContainerInstance.MountPath + "/src" + build.FullBuildTask
-	if !fullBuild {
-		task = ReusableBuildContainerInstance.MountPath + "/src" + build.IncrementalBuildTask
+	if fullBuild {
+		for _, scenario := range devPack.Spec.Scenarios {
+			if scenario.Name == "full-build" {
+				for _, scenariotask := range scenario.Tasks {
+					for _, task := range devPack.Spec.Tasks {
+						if scenariotask == task.Name {
+							err = executetask(Client, strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName)
+							if err != nil {
+								glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName, err)
+								err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
+	} else {
+		for _, scenario := range devPack.Spec.Scenarios {
+			if scenario.Name == "incremental-build" {
+				for _, scenariotask := range scenario.Tasks {
+					for _, task := range devPack.Spec.Tasks {
+						if scenariotask == task.Name {
+							err = executetask(Client, strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName)
+							if err != nil {
+								glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName, err)
+								err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
 	}
-	err = executetask(Client, task, ReusableBuildContainerInstance.PodName)
-	if err != nil {
-		glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", task, ReusableBuildContainerInstance.PodName, err)
-		err = errors.New("Unable to exec command " + task + " in the runtime container: " + err.Error())
-		return err
-	}
+
+	// task := ReusableBuildContainerInstance.MountPath + "/src" + build.FullBuildTask
+	// if !fullBuild {
+	// 	task = ReusableBuildContainerInstance.MountPath + "/src" + build.IncrementalBuildTask
+	// }
+	// err = executetask(Client, task, ReusableBuildContainerInstance.PodName)
+	// if err != nil {
+	// 	glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", task, ReusableBuildContainerInstance.PodName, err)
+	// 	err = errors.New("Unable to exec command " + task + " in the runtime container: " + err.Error())
+	// 	return err
+	// }
 
 	// Create the Runtime Task Instance
 	RuntimeTaskInstance := BuildTask{
 		UseRuntime:         false,
 		Kind:               ComponentType,
 		Name:               strings.ToLower(projectName) + "-runtime",
-		Image:              RuntimeContainerImage,
+		Image:              devPack.Spec.Runtime.Image,
 		ContainerName:      RuntimeContainerName,
 		Namespace:          namespace,
 		PVCName:            idpClaimName,
@@ -141,7 +177,7 @@ func BuildTaskExec(Client *kclient.Client, projectName string, fullBuild bool) e
 		// OwnerReferenceName: ownerReferenceName,
 		// OwnerReferenceUID:  ownerReferenceUID,
 		Privileged: true,
-		MountPath:  RuntimeContainerMountPathDefault,
+		MountPath:  devPack.Spec.Runtime.VolumeMappings[0].ContainerPath,
 		SubPath:    "projects/" + projectName + "/buildartifacts/",
 	}
 

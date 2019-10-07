@@ -250,49 +250,50 @@ func GetComponentLinkedSecretNames(client *kclient.Client, componentName string,
 // sourceType indicates the source type of the component and can be either local or binary
 // envVars is the array containing the environment variables
 func CreateFromPath(client *kclient.Client, params kclient.CreateArgs, devPack *idp.IDP, fullBuild bool) error {
-	labels := componentlabels.GetLabels(params.Name, params.ApplicationName, true)
+	// labels := componentlabels.GetLabels(params.Name, params.ApplicationName, true)
 
-	// Parse componentImageType before adding to labels
-	_, imageName, imageTag, _, err := kclient.ParseImageName(params.ImageName)
-	if err != nil {
-		return errors.Wrap(err, "unable to parse image name")
-	}
+	// // Parse componentImageType before adding to labels
+	// _, imageName, imageTag, _, err := kclient.ParseImageName(params.ImageName)
+	// if err != nil {
+	// 	return errors.Wrap(err, "unable to parse image name")
+	// }
 
-	// save component type as label
-	labels[componentlabels.ComponentTypeLabel] = imageName
-	labels[componentlabels.ComponentTypeVersion] = imageTag
+	// // save component type as label
+	// labels[componentlabels.ComponentTypeLabel] = imageName
+	// labels[componentlabels.ComponentTypeVersion] = imageTag
 
-	// save source path as annotation
-	sourceURL := util.GenFileURL(params.SourcePath)
-	annotations := map[string]string{componentSourceURLAnnotation: sourceURL}
-	annotations[ComponentSourceTypeAnnotation] = string(params.SourceType)
+	// // save source path as annotation
+	// sourceURL := util.GenFileURL(params.SourcePath)
+	// annotations := map[string]string{componentSourceURLAnnotation: sourceURL}
+	// annotations[ComponentSourceTypeAnnotation] = string(params.SourceType)
 
-	// Namespace the component
-	namespacedKubernetesObject, err := util.NamespaceKubernetesObject(params.Name, params.ApplicationName)
-	if err != nil {
-		return errors.Wrapf(err, "unable to create namespaced name")
-	}
+	// // Namespace the component
+	// namespacedKubernetesObject, err := util.NamespaceKubernetesObject(params.Name, params.ApplicationName)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "unable to create namespaced name")
+	// }
 
-	// Create CommonObjectMeta to be passed in
-	commonObjectMeta := metav1.ObjectMeta{
-		Name:        namespacedKubernetesObject,
-		Labels:      labels,
-		Annotations: annotations,
-	}
+	// // Create CommonObjectMeta to be passed in
+	// commonObjectMeta := metav1.ObjectMeta{
+	// 	Name:        namespacedKubernetesObject,
+	// 	Labels:      labels,
+	// 	Annotations: annotations,
+	// }
 
-	// fmt.Println("MJF CreateFromPath params.Name,  " + params.Name)
-	// fmt.Println("MJF CreateFromPath params.ApplicationName " + params.ApplicationName)
-	// fmt.Println("MJF CreateFromPath commonObjectMeta.Name " + commonObjectMeta.Name)
+	// // fmt.Println("MJF CreateFromPath params.Name,  " + params.Name)
+	// // fmt.Println("MJF CreateFromPath params.ApplicationName " + params.ApplicationName)
+	// // fmt.Println("MJF CreateFromPath commonObjectMeta.Name " + commonObjectMeta.Name)
 
-	fmt.Printf("params %+v\n", params)
-	fmt.Printf("commonObjectMeta %+v\n", commonObjectMeta)
+	// fmt.Printf("params %+v\n", params)
+	// fmt.Printf("commonObjectMeta %+v\n", commonObjectMeta)
 
-	if len(devPack.Spec.Tasks) > 0 {
-		fmt.Println("MJF buildTask")
-		BuildTaskExec(client, "projA", fullBuild)
+	fmt.Printf("devPack %+v\n", devPack)
+	// fmt.Printf("commonObjectMeta %+v\n", commonObjectMeta)
+
+	if devPack.Spec.Tasks[0].Type == "Shared" {
+		BuildTaskExec(client, "projA", fullBuild, devPack)
 	} else {
-		fmt.Println("MJF runTask")
-		RunTaskExec(client, "projA", fullBuild)
+		RunTaskExec(client, "projA", fullBuild, devPack)
 	}
 
 	// // Create component resources

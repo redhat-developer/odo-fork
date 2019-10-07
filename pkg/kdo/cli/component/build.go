@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/redhat-developer/odo-fork/pkg/component"
 	"github.com/redhat-developer/odo-fork/pkg/kdo/genericclioptions"
 
 	ktemplates "k8s.io/kubectl/pkg/util/templates"
@@ -61,11 +60,11 @@ func (o *BuildIDPOptions) Validate() (err error) {
 // Run contains the logic for the command associated with BuildIDPOptions
 func (o *BuildIDPOptions) Run() (err error) {
 
-	if !o.useRuntimeContainer {
-		component.BuildTaskExec(o.Context.Client, o.projectName, o.fullBuild)
-	} else {
-		component.RunTaskExec(o.Context.Client, o.projectName, o.fullBuild)
-	}
+	// if !o.useRuntimeContainer {
+	// 	component.BuildTaskExec(o.Context.Client, o.projectName, o.fullBuild)
+	// } else {
+	// 	component.RunTaskExec(o.Context.Client, o.projectName, o.fullBuild)
+	// }
 
 	return
 }

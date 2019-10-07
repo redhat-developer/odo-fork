@@ -7,13 +7,14 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"github.com/redhat-developer/odo-fork/pkg/build"
+	"github.com/redhat-developer/odo-fork/pkg/idp"
 	"github.com/redhat-developer/odo-fork/pkg/kclient"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // RunTaskExec is the Run Task execution implementation of the IDP run task
-func RunTaskExec(Client *kclient.Client, projectName string, fullBuild bool) error {
+func RunTaskExec(Client *kclient.Client, projectName string, fullBuild bool, devPack *idp.IDP) error {
 	clientset := Client.KubeClient
 	namespace := Client.Namespace
 
