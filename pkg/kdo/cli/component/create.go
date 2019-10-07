@@ -483,6 +483,14 @@ func (co *CreateOptions) Run() (err error) {
 		parentFolder := filepath.Dir(co.localIDPRepo)
 		devPackPath := filepath.Join(parentFolder, catalogEntry.Devpack["self"])
 		err = idp.CopyLocalIDP(devPackPath)
+
+		// TODO The following copies files from the dev pack folder to the udo folder as a temporary workaround, should remove once it's implemented fully
+		udoDir, err := config.GetUDOFolder("")
+		if err != nil {
+			return fmt.Errorf("unabled to find .udo folder")
+		}
+
+		idp.CopyFolder(parentFolder, udoDir)
 	}
 	if err != nil {
 		return err
