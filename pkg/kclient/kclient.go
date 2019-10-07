@@ -985,7 +985,7 @@ func (c *Client) CopyFile(localPath string, targetPodName string, targetPath str
 	dest := filepath.ToSlash(filepath.Join(targetPath, filepath.Base(localPath)))
 	targetPath = filepath.ToSlash(targetPath)
 
-	glog.V(4).Infof("Copying from %s to %s, with files: %s & global experssion: %s in Pod: %s", localPath, dest, copyFiles, globExps, targetPodName)
+	glog.V(4).Infof("Copying from %s to %s, with files: %s & global expression: %s in Pod: %s", localPath, dest, copyFiles, globExps, targetPodName)
 	reader, writer := io.Pipe()
 	// inspired from https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl/cmd/cp.go#L235
 	go func() {

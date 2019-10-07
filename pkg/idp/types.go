@@ -39,7 +39,7 @@ type SpecRuntime struct {
 	Ports                        RuntimePorts       `yaml:"ports"`
 	Logs                         []Logs             `yaml:"logs"`
 	Env                          []EnvVar           `yaml:"env"`
-	VolumeMappings               []VolumeMappings   `yaml:"volumeMappings"`
+	VolumeMappings               []VolumeMapping    `yaml:"volumeMappings"`
 	Kubernetes                   KubernetesSettings `yaml:"kubernetes"`
 }
 
@@ -52,21 +52,21 @@ type SpecShared struct {
 
 // SpecTask represents an IDP build task/step
 type SpecTask struct {
-	Name             string         `yaml:"name"`
-	Type             string         `yaml:"type"`
-	Container        string         `yaml:"container"`
-	Command          []string       `yaml:"command"`
-	WorkingDirectory string         `yaml:"workingDirectory"`
-	Logs             []Logs         `yaml:"logs"`
-	RepoMappings     []RepoMappings `yaml:"repoMappings"`
-	SourceMappings   SourceMapping  `yaml:"sourceMapping"`
-	Env              []EnvVar       `yaml:"env"`
+	Name             string        `yaml:"name"`
+	Type             string        `yaml:"type"`
+	Container        string        `yaml:"container"`
+	Command          []string      `yaml:"command"`
+	WorkingDirectory string        `yaml:"workingDirectory"`
+	Logs             []Logs        `yaml:"logs"`
+	RepoMappings     []RepoMapping `yaml:"repoMappings"`
+	SourceMapping    SourceMapping `yaml:"sourceMapping"`
+	Env              []EnvVar      `yaml:"env"`
 }
 
 type SharedContainers struct {
 	Name           string             `yaml:"name"`
 	Image          string             `yaml:"image"`
-	VolumeMappings []VolumeMappings   `yaml:"volumeMappings"`
+	VolumeMappings []VolumeMapping    `yaml:"volumeMappings"`
 	Env            []EnvVar           `yaml:"env"`
 	Privileged     bool               `yaml:"privileged"`
 	Kubernetes     KubernetesSettings `yaml:"kubernetes"`
@@ -92,8 +92,8 @@ type KubeProbe struct {
 }
 
 type KubeResources struct {
-	Memory int `yaml:"memory"`
-	CPU    int `yaml:"cpu"`
+	Memory string `yaml:"memory"`
+	CPU    string `yaml:"cpu"`
 }
 
 // Maintainer represents the maintainer(s) of an Iterative-Dev Pack
@@ -148,7 +148,7 @@ type Logs struct {
 // This does not override any volumes that the use may add with `udo volume ...`
 type SharedVolumes struct {
 	Name string `yaml:"name"`
-	size int    `yaml:"size"`
+	size string `yaml:"size"`
 }
 
 // EnvVar represents a key/value mapping of environment vars to use in runtime and build containers
@@ -157,7 +157,7 @@ type EnvVar struct {
 	value string `yaml:"value"`
 }
 
-type RepoMappings struct {
+type RepoMapping struct {
 	SrcPath       string `yaml:"srcPath"`
 	DestPath      string `yaml:"destPath"`
 	SetExecuteBit bool   `yaml:"setExecuteBit"`
@@ -168,7 +168,7 @@ type SourceMapping struct {
 	SetExecuteBit bool   `yaml:"setExecuteBit"`
 }
 
-type VolumeMappings struct {
+type VolumeMapping struct {
 	VolumeName    string `yaml:"volumeName"`
 	ContainerPath string `yaml:"containerPath"`
 }
