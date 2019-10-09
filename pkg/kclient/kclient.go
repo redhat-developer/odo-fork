@@ -460,6 +460,9 @@ func (c *Client) CreateComponentResources(params CreateArgs, commonObjectMeta me
 		Ports:     containerPorts,
 	}
 
+	fmt.Printf("commonImageMeta %+v\n", commonImageMeta)
+	fmt.Printf("inputEnvs %+v\n", inputEnvs)
+
 	// Generate the Deployment that will be used.
 	deployment := generateDeployment(
 		commonObjectMeta,
@@ -469,12 +472,12 @@ func (c *Client) CreateComponentResources(params CreateArgs, commonObjectMeta me
 		params.Resources,
 	)
 
-	if len(inputEnvs) != 0 {
-		err = updateEnvVar(&deployment, inputEnvs)
-		if err != nil {
-			return errors.Wrapf(err, "unable to add env vars to the container")
-		}
-	}
+	// if len(inputEnvs) != 0 {
+	// 	err = updateEnvVar(&deployment, inputEnvs)
+	// 	if err != nil {
+	// 		return errors.Wrapf(err, "unable to add env vars to the container")
+	// 	}
+	// }
 
 	// Attach any volumes to the deployment, before creating it on the cluster
 	err = addOrRemoveVolumeAndVolumeMount(c, &deployment, params.StorageToBeMounted, nil)

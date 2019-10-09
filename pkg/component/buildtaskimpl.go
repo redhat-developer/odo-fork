@@ -6,16 +6,20 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
+	"github.com/redhat-developer/odo-fork/pkg/config"
 	"github.com/redhat-developer/odo-fork/pkg/idp"
 	"github.com/redhat-developer/odo-fork/pkg/kclient"
+	"github.com/redhat-developer/odo-fork/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // BuildTaskExec is the Build Task execution implementation of the IDP build task
-func BuildTaskExec(Client *kclient.Client, projectName string, fullBuild bool, devPack *idp.IDP) error {
-	clientset := Client.KubeClient
+func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, projectName string, fullBuild bool, devPack *idp.IDP) error {
+	// clientset := Client.KubeClient
 	namespace := Client.Namespace
+	cmpName := componentConfig.GetName()
+	appName := componentConfig.GetApplication()
 
 	glog.V(0).Infof("Namespace: %s\n", namespace)
 
@@ -182,20 +186,15 @@ func BuildTaskExec(Client *kclient.Client, projectName string, fullBuild bool, d
 	}
 
 	glog.V(0).Info("Checking if Runtime Container has already been deployed...\n")
-	foundRuntimeContainer := false
-	timeout = int64(10)
-	watchOptions = metav1.ListOptions{
-		LabelSelector:  "app=" + RuntimeTaskInstance.Name + "-selector,chart=" + RuntimeTaskInstance.Name + "-1.0.0,release=" + RuntimeTaskInstance.Name,
-		TimeoutSeconds: &timeout,
+	s := log.Spinner("Checking component")
+	defer s.End(false)
+	isCmpExists, err := Exists(Client, cmpName, appName)
+	if err != nil {
+		return errors.Wrapf(err, "failed to check if component %s exists or not", cmpName)
 	}
-	po, _ = Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Runtime Container has already been deployed")
-	if po != nil {
-		glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
-		RuntimeTaskInstance.PodName = po.Name
-		foundRuntimeContainer = true
-	}
+	s.End(true)
 
-	if !foundRuntimeContainer {
+	if !isCmpExists {
 		// Deploy the application if it is a full build type and a running pod is not found
 		glog.V(0).Info("Deploying the application")
 
@@ -205,40 +204,68 @@ func BuildTaskExec(Client *kclient.Client, projectName string, fullBuild bool, d
 			"release": RuntimeTaskInstance.Name,
 		}
 
-		// Deploy Application
-		deploy := CreateDeploy(RuntimeTaskInstance)
-		service := CreateService(RuntimeTaskInstance)
-
-		glog.V(0).Info("===============================")
-		glog.V(0).Info("Deploying application...")
-		_, err = clientset.CoreV1().Services(namespace).Create(&service)
-		if err != nil {
-			err = errors.New("Unable to create component service: " + err.Error())
-			return err
-		}
-		glog.V(0).Info("The service has been created.")
-
-		_, err = clientset.AppsV1().Deployments(namespace).Create(&deploy)
-		if err != nil {
+		if err = RuntimeTaskInstance.CreateComponent(Client, componentConfig, devPack, fullBuild); err != nil {
 			err = errors.New("Unable to create component deployment: " + err.Error())
 			return err
 		}
-		glog.V(0).Info("The deployment has been created.")
-		glog.V(0).Info("===============================")
-
-		// Wait for the pod to run
-		glog.V(0).Info("Waiting for pod to run\n")
-		watchOptions := metav1.ListOptions{
-			LabelSelector: "app=" + RuntimeTaskInstance.Name + "-selector,chart=" + RuntimeTaskInstance.Name + "-1.0.0,release=" + RuntimeTaskInstance.Name,
-		}
-		po, err := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Component Container to run")
-		if err != nil {
-			err = errors.New("The Component Container failed to run")
-			return err
-		}
-		glog.V(0).Info("The Component Pod is up and running: " + po.Name)
-		RuntimeTaskInstance.PodName = po.Name
 	}
+	// foundRuntimeContainer := false
+	// timeout = int64(10)
+	// watchOptions = metav1.ListOptions{
+	// 	LabelSelector:  "app=" + RuntimeTaskInstance.Name + "-selector,chart=" + RuntimeTaskInstance.Name + "-1.0.0,release=" + RuntimeTaskInstance.Name,
+	// 	TimeoutSeconds: &timeout,
+	// }
+	// po, _ = Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Runtime Container has already been deployed")
+	// if po != nil {
+	// 	glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
+	// 	RuntimeTaskInstance.PodName = po.Name
+	// 	foundRuntimeContainer = true
+	// }
+
+	// if !foundRuntimeContainer {
+	// 	// Deploy the application if it is a full build type and a running pod is not found
+	// 	glog.V(0).Info("Deploying the application")
+
+	// 	RuntimeTaskInstance.Labels = map[string]string{
+	// 		"app":     RuntimeTaskInstance.Name + "-selector",
+	// 		"chart":   RuntimeTaskInstance.Name + "-1.0.0",
+	// 		"release": RuntimeTaskInstance.Name,
+	// 	}
+
+	// 	// Deploy Application
+	// 	deploy := CreateDeploy(RuntimeTaskInstance)
+	// 	service := CreateService(RuntimeTaskInstance)
+
+	// 	glog.V(0).Info("===============================")
+	// 	glog.V(0).Info("Deploying application...")
+	// 	_, err = clientset.CoreV1().Services(namespace).Create(&service)
+	// 	if err != nil {
+	// 		err = errors.New("Unable to create component service: " + err.Error())
+	// 		return err
+	// 	}
+	// 	glog.V(0).Info("The service has been created.")
+
+	// 	_, err = clientset.AppsV1().Deployments(namespace).Create(&deploy)
+	// 	if err != nil {
+	// 		err = errors.New("Unable to create component deployment: " + err.Error())
+	// 		return err
+	// 	}
+	// 	glog.V(0).Info("The deployment has been created.")
+	// 	glog.V(0).Info("===============================")
+
+	// 	// Wait for the pod to run
+	// 	glog.V(0).Info("Waiting for pod to run\n")
+	// 	watchOptions := metav1.ListOptions{
+	// 		LabelSelector: "app=" + RuntimeTaskInstance.Name + "-selector,chart=" + RuntimeTaskInstance.Name + "-1.0.0,release=" + RuntimeTaskInstance.Name,
+	// 	}
+	// 	po, err := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Component Container to run")
+	// 	if err != nil {
+	// 		err = errors.New("The Component Container failed to run")
+	// 		return err
+	// 	}
+	// 	glog.V(0).Info("The Component Pod is up and running: " + po.Name)
+	// 	RuntimeTaskInstance.PodName = po.Name
+	// }
 
 	return nil
 }

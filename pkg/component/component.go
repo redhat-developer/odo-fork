@@ -249,58 +249,53 @@ func GetComponentLinkedSecretNames(client *kclient.Client, componentName string,
 // CreateFromPath create new component with source or binary from the given local path
 // sourceType indicates the source type of the component and can be either local or binary
 // envVars is the array containing the environment variables
-func CreateFromPath(client *kclient.Client, params kclient.CreateArgs, devPack *idp.IDP, fullBuild bool) error {
-	// labels := componentlabels.GetLabels(params.Name, params.ApplicationName, true)
+func (b *BuildTask) CreateFromPath(client *kclient.Client, params kclient.CreateArgs, devPack *idp.IDP, fullBuild bool) error {
+	labels := componentlabels.GetLabels(params.Name, params.ApplicationName, true)
 
-	// // Parse componentImageType before adding to labels
-	// _, imageName, imageTag, _, err := kclient.ParseImageName(params.ImageName)
-	// if err != nil {
-	// 	return errors.Wrap(err, "unable to parse image name")
-	// }
-
-	// // save component type as label
-	// labels[componentlabels.ComponentTypeLabel] = imageName
-	// labels[componentlabels.ComponentTypeVersion] = imageTag
-
-	// // save source path as annotation
-	// sourceURL := util.GenFileURL(params.SourcePath)
-	// annotations := map[string]string{componentSourceURLAnnotation: sourceURL}
-	// annotations[ComponentSourceTypeAnnotation] = string(params.SourceType)
-
-	// // Namespace the component
-	// namespacedKubernetesObject, err := util.NamespaceKubernetesObject(params.Name, params.ApplicationName)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "unable to create namespaced name")
-	// }
-
-	// // Create CommonObjectMeta to be passed in
-	// commonObjectMeta := metav1.ObjectMeta{
-	// 	Name:        namespacedKubernetesObject,
-	// 	Labels:      labels,
-	// 	Annotations: annotations,
-	// }
-
-	// // fmt.Println("MJF CreateFromPath params.Name,  " + params.Name)
-	// // fmt.Println("MJF CreateFromPath params.ApplicationName " + params.ApplicationName)
-	// // fmt.Println("MJF CreateFromPath commonObjectMeta.Name " + commonObjectMeta.Name)
-
-	// fmt.Printf("params %+v\n", params)
-	// fmt.Printf("commonObjectMeta %+v\n", commonObjectMeta)
-
-	fmt.Printf("devPack %+v\n", devPack)
-	// fmt.Printf("commonObjectMeta %+v\n", commonObjectMeta)
-
-	if devPack.Spec.Tasks[0].Type == "Shared" {
-		BuildTaskExec(client, "projA", fullBuild, devPack)
-	} else {
-		RunTaskExec(client, "projA", fullBuild, devPack)
+	// Parse componentImageType before adding to labels
+	_, imageName, imageTag, _, err := kclient.ParseImageName(params.ImageName)
+	if err != nil {
+		return errors.Wrap(err, "unable to parse image name")
 	}
 
-	// // Create component resources
-	// err = client.CreateComponentResources(params, commonObjectMeta)
-	// if err != nil {
-	// 	return err
+	// save component type as label
+	labels[componentlabels.ComponentTypeLabel] = imageName
+	labels[componentlabels.ComponentTypeVersion] = imageTag
+
+	// save source path as annotation
+	sourceURL := util.GenFileURL(params.SourcePath)
+	annotations := map[string]string{componentSourceURLAnnotation: sourceURL}
+	annotations[ComponentSourceTypeAnnotation] = string(params.SourceType)
+
+	// Namespace the component
+	namespacedKubernetesObject, err := util.NamespaceKubernetesObject(params.Name, params.ApplicationName)
+	if err != nil {
+		return errors.Wrapf(err, "unable to create namespaced name")
+	}
+
+	// Create CommonObjectMeta to be passed in
+	commonObjectMeta := metav1.ObjectMeta{
+		Name:        namespacedKubernetesObject,
+		Labels:      labels,
+		Annotations: annotations,
+	}
+
+	fmt.Printf("params %+v\n", params)
+	fmt.Printf("commonObjectMeta %+v\n", commonObjectMeta)
+
+	// fmt.Printf("devPack %+v\n", devPack)
+
+	// if devPack.Spec.Tasks[0].Type == "Shared" {
+	// 	BuildTaskExec(client, "projA", fullBuild, devPack)
+	// } else {
+	// 	RunTaskExec(client, "projA", fullBuild, devPack)
 	// }
+
+	// Create component resources
+	err = client.CreateComponentResources(params, commonObjectMeta)
+	if err != nil {
+		return err
+	}
 
 	// if params.Wait {
 	// 	// if wait flag is present then extract the podselector
@@ -399,7 +394,7 @@ func Delete(client *kclient.Client, componentName string, applicationName string
 //		stdout: io.Writer instance to write output to
 //	Returns:
 //		err: errors if any
-func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, context string, stdout io.Writer, devPack *idp.IDP, fullBuild bool) (err error) {
+func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, devPack *idp.IDP, fullBuild bool) (err error) {
 
 	cmpName := componentConfig.GetName()
 	// cmpType := componentConfig.GetType()
@@ -411,9 +406,7 @@ func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigI
 	// create and get the storage to be created/mounted during the component creation
 	// storageList := getStorageFromConfig(&componentConfig)
 	// storageToBeMounted, _, err := storage.Push(client, storageList, componentConfig.GetName(), componentConfig.GetApplication(), false)
-	if err != nil {
-		return err
-	}
+
 	// TODO-KDO: remove following line and implement storage handling properly for KDO
 	imgName := devPack.Spec.Runtime.Image
 	log.Successf("Initializing component")
@@ -423,10 +416,20 @@ func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigI
 		ImageName:       imgName,
 		ApplicationName: appName,
 		EnvVars:         envVarsList.ToStringSlice(),
-		// StorageToBeMounted: storageToBeMounted,
 	}
 	createArgs.SourceType = cmpSrcType
 	createArgs.SourcePath = componentConfig.GetSourceLocation()
+
+	if !b.UseRuntime {
+		storageToBeMounted := make(map[string]*corev1.PersistentVolumeClaim)
+		createdPVC, err := storage.Create(client, devPack.Spec.Shared.Volumes[0].Name, devPack.Spec.Shared.Volumes[0].Size, cmpName, appName)
+		if err != nil {
+			fmt.Println("Error creating PVC " + err.Error())
+			return err
+		}
+		storageToBeMounted[b.MountPath+"#"+b.SubPath] = createdPVC
+		createArgs.StorageToBeMounted = storageToBeMounted
+	}
 
 	// If the user overrides ports in the udo config, set them as the component's ports instead (Rather than what the IDP specified)
 	if len(cmpPorts) > 0 {
@@ -466,11 +469,11 @@ func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigI
 			return fmt.Errorf("component creation with args %+v as path needs to be a directory", createArgs)
 		}
 		// Create
-		if err = CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
+		if err = b.CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
 			return errors.Wrapf(err, "failed to create component with args %+v", createArgs)
 		}
 	case config.BINARY:
-		if err = CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
+		if err = b.CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
 			return errors.Wrapf(err, "failed to create component with args %+v", createArgs)
 		}
 	default:
@@ -481,7 +484,7 @@ func CreateComponent(client *kclient.Client, componentConfig config.LocalConfigI
 			return errors.Wrap(err, "failed to create component with current directory as source for the component")
 		}
 		createArgs.SourcePath = dir
-		if err = CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
+		if err = b.CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
 			return errors.Wrapf(err, "")
 		}
 	}

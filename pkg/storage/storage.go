@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/redhat-developer/odo-fork/pkg/log"
 
@@ -41,7 +42,9 @@ func Create(client *kclient.Client, name string, size string, componentName stri
 
 	labels := storagelabels.GetLabels(name, componentName, applicationName, true)
 
-	glog.V(4).Infof("Got labels for PVC: %v", labels)
+	glog.V(0).Infof("Got labels for PVC: %v", labels)
+	glog.V(0).Infof("Got size for PVC: " + size)
+	glog.V(0).Infof("Got name for PVC: " + name)
 
 	// Create PVC
 	pvc, err := client.CreatePVC(generatePVCNameFromStorageName(namespaceKubernetesObject), size, labels)
@@ -310,7 +313,7 @@ func IsMounted(client *kclient.Client, storageName string, componentName string,
 }
 
 // Mount mounts the given storage to the given component
-func Mount(client *kclient.Client, path string, storageName string, componentName string, applicationName string) error {
+func Mount(client *kclient.Client, pathAndSubPath string, storageName string, componentName string, applicationName string) error {
 	storageComponent, err := GetComponentNameFromStorageName(client, storageName)
 	if err != nil {
 		return errors.Wrap(err, "unable to get the component name associated with the storage")
@@ -338,8 +341,17 @@ func Mount(client *kclient.Client, path string, storageName string, componentNam
 	}
 	glog.V(4).Infof("Deployment: %v is associated with the component: %v", dep.Name, componentName)
 
+	isSubPathMentioned := strings.Contains(pathAndSubPath, "#")
+	path, subPath := "", ""
+	if isSubPathMentioned {
+		path = pathAndSubPath[:strings.IndexByte(pathAndSubPath, '#')]
+		subPath = pathAndSubPath[strings.IndexByte(pathAndSubPath, '#')+1:]
+	} else {
+		path = pathAndSubPath
+	}
+
 	// Add PVC to Deployment
-	if err := client.AddPVCToDeployment(dep, pvc.Name, path); err != nil {
+	if err := client.AddPVCToDeployment(dep, pvc.Name, path, subPath); err != nil {
 		return errors.Wrap(err, "unable to add PVC to Deployment")
 	}
 	err = client.UpdatePVCLabels(pvc, storagelabels.GetLabels(storageName, componentName, applicationName, true))
@@ -391,6 +403,7 @@ func Push(client *kclient.Client, storageList StorageList, componentName, applic
 	// list all the storage in the config
 	storageConfigNames := make(map[string]Storage)
 	for _, storage := range storageList.Items {
+		fmt.Println("storageConfigNames storage.Name: " + storage.Name)
 		storageConfigNames[storage.Name] = storage
 	}
 
@@ -420,6 +433,7 @@ func Push(client *kclient.Client, storageList StorageList, componentName, applic
 	for _, storage := range storageList.Items {
 		_, ok := storageClusterNames[storage.Name]
 		if !ok {
+			fmt.Println("creating PVC " + storage.Name)
 			createdPVC, err := Create(client, storage.Name, storage.Spec.Size, componentName, applicationName)
 			if err != nil {
 				return nil, nil, err
