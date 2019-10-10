@@ -280,41 +280,11 @@ func (b *BuildTask) CreateFromPath(client *kclient.Client, params kclient.Create
 		Annotations: annotations,
 	}
 
-	fmt.Printf("params %+v\n", params)
-	fmt.Printf("commonObjectMeta %+v\n", commonObjectMeta)
-
-	// fmt.Printf("devPack %+v\n", devPack)
-
-	// if devPack.Spec.Tasks[0].Type == "Shared" {
-	// 	BuildTaskExec(client, "projA", fullBuild, devPack)
-	// } else {
-	// 	RunTaskExec(client, "projA", fullBuild, devPack)
-	// }
-
 	// Create component resources
 	err = client.CreateComponentResources(params, commonObjectMeta)
 	if err != nil {
 		return err
 	}
-
-	// if params.Wait {
-	// 	// if wait flag is present then extract the podselector
-	// 	// use the podselector for calling WaitAndGetPod
-	// 	selectorLabels, err := util.NamespaceKubernetesObject(labels[componentlabels.ComponentLabel], labels["app"])
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	podSelector := fmt.Sprintf("deployment=%s", selectorLabels)
-	// 	watchOptions := metav1.ListOptions{
-	// 		LabelSelector: podSelector,
-	// 	}
-	// 	_, err = client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for component to start")
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	return nil
-	// }
 
 	return nil
 }
@@ -423,7 +393,6 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 
 	if !b.UseRuntime {
 		storageToBeMounted := make(map[string]*corev1.PersistentVolumeClaim)
-		// createdPVC, err := storage.Create(client, devPack.Spec.Shared.Volumes[0].Name, devPack.Spec.Shared.Volumes[0].Size, cmpName, appName)
 		storageToBeMounted[b.MountPath+"#"+b.SubPath] = pvc
 		createArgs.StorageToBeMounted = storageToBeMounted
 	}

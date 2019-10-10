@@ -17,7 +17,7 @@ import (
 )
 
 // BuildTaskExec is the Build Task execution implementation of the IDP build task
-func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, projectName string, fullBuild bool, devPack *idp.IDP) error {
+func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fullBuild bool, devPack *idp.IDP) error {
 	// clientset := Client.KubeClient
 	namespace := Client.Namespace
 	cmpName := componentConfig.GetName()
@@ -176,24 +176,13 @@ func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInf
 		}
 	}
 
-	// task := ReusableBuildContainerInstance.MountPath + "/src" + build.FullBuildTask
-	// if !fullBuild {
-	// 	task = ReusableBuildContainerInstance.MountPath + "/src" + build.IncrementalBuildTask
-	// }
-	// err = executetask(Client, task, ReusableBuildContainerInstance.PodName)
-	// if err != nil {
-	// 	glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", task, ReusableBuildContainerInstance.PodName, err)
-	// 	err = errors.New("Unable to exec command " + task + " in the runtime container: " + err.Error())
-	// 	return err
-	// }
-
 	// Create the Runtime Task Instance
 	RuntimeTaskInstance := BuildTask{
 		UseRuntime:         false,
 		Kind:               ComponentType,
-		Name:               namespacedKubernetesObject + "-runtime",
+		Name:               namespacedKubernetesObject[:40] + "-runtime",
 		Image:              devPack.Spec.Runtime.Image,
-		ContainerName:      RuntimeContainerName,
+		ContainerName:      namespacedKubernetesObject[:40] + "-container",
 		Namespace:          namespace,
 		PVCName:            idpClaimName,
 		ServiceAccountName: serviceAccountName,
@@ -234,40 +223,6 @@ func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInf
 			return err
 		}
 		s.End(true)
-
-		// // Deploy Application
-		// deploy := CreateDeploy(RuntimeTaskInstance)
-		// service := CreateService(RuntimeTaskInstance)
-
-		// glog.V(0).Info("===============================")
-		// glog.V(0).Info("Deploying application...")
-		// _, err = clientset.CoreV1().Services(namespace).Create(&service)
-		// if err != nil {
-		// 	err = errors.New("Unable to create component service: " + err.Error())
-		// 	return err
-		// }
-		// glog.V(0).Info("The service has been created.")
-
-		// _, err = clientset.AppsV1().Deployments(namespace).Create(&deploy)
-		// if err != nil {
-		// 	err = errors.New("Unable to create component deployment: " + err.Error())
-		// 	return err
-		// }
-		// glog.V(0).Info("The deployment has been created.")
-		// glog.V(0).Info("===============================")
-
-		// // Wait for the pod to run
-		// glog.V(0).Info("Waiting for pod to run\n")
-		// watchOptions := metav1.ListOptions{
-		// 	LabelSelector: "app=" + RuntimeTaskInstance.Name + "-selector,chart=" + RuntimeTaskInstance.Name + "-1.0.0,release=" + RuntimeTaskInstance.Name,
-		// }
-		// po, err := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Component Container to run")
-		// if err != nil {
-		// 	err = errors.New("The Component Container failed to run")
-		// 	return err
-		// }
-		// glog.V(0).Info("The Component Pod is up and running: " + po.Name)
-		// RuntimeTaskInstance.PodName = po.Name
 	}
 
 	return nil

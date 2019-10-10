@@ -42,10 +42,6 @@ func Create(client *kclient.Client, name string, size string, componentName stri
 
 	labels := storagelabels.GetLabels(name, componentName, applicationName, true)
 
-	glog.V(0).Infof("Got labels for PVC: %v", labels)
-	glog.V(0).Infof("Got size for PVC: " + size)
-	glog.V(0).Infof("Got name for PVC: " + name)
-
 	// Create PVC
 	pvc, err := client.CreatePVC(generatePVCNameFromStorageName(namespaceKubernetesObject), size, labels)
 	if err != nil {
@@ -403,7 +399,6 @@ func Push(client *kclient.Client, storageList StorageList, componentName, applic
 	// list all the storage in the config
 	storageConfigNames := make(map[string]Storage)
 	for _, storage := range storageList.Items {
-		fmt.Println("storageConfigNames storage.Name: " + storage.Name)
 		storageConfigNames[storage.Name] = storage
 	}
 
@@ -433,7 +428,6 @@ func Push(client *kclient.Client, storageList StorageList, componentName, applic
 	for _, storage := range storageList.Items {
 		_, ok := storageClusterNames[storage.Name]
 		if !ok {
-			fmt.Println("creating PVC " + storage.Name)
 			createdPVC, err := Create(client, storage.Name, storage.Spec.Size, componentName, applicationName)
 			if err != nil {
 				return nil, nil, err

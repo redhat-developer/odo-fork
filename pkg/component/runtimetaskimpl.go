@@ -16,7 +16,7 @@ import (
 )
 
 // RunTaskExec is the Run Task execution implementation of the IDP run task
-func RunTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, projectName string, fullBuild bool, devPack *idp.IDP) error {
+func RunTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fullBuild bool, devPack *idp.IDP) error {
 	// clientset := Client.KubeClient
 	namespace := Client.Namespace
 	cmpName := componentConfig.GetName()
@@ -56,9 +56,9 @@ func RunTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo,
 	RuntimeTaskInstance := BuildTask{
 		UseRuntime:         true,
 		Kind:               ComponentType,
-		Name:               strings.ToLower(projectName) + "-runtime",
+		Name:               namespacedKubernetesObject[:40] + "-runtime",
 		Image:              devPack.Spec.Runtime.Image,
-		ContainerName:      RuntimeContainerName,
+		ContainerName:      namespacedKubernetesObject[:40] + "-container",
 		Namespace:          namespace,
 		PVCName:            "",
 		ServiceAccountName: serviceAccountName,
@@ -83,11 +83,6 @@ func RunTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo,
 		foundRuntimeContainer = true
 	}
 
-	// isCmpExists, err := Exists(Client, cmpName, appName)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "failed to check if component %s exists or not", cmpName)
-	// }
-
 	if !foundRuntimeContainer {
 		// Deploy the application if it is a full build type and a running pod is not found
 		glog.V(0).Info("Deploying the application")
@@ -104,28 +99,6 @@ func RunTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo,
 			return err
 		}
 		s.End(true)
-
-		// // Deploy Application
-		// deploy := CreateDeploy(RuntimeTaskInstance)
-		// service := CreateService(RuntimeTaskInstance)
-
-		// glog.V(0).Info("===============================")
-		// glog.V(0).Info("Deploying application...")
-		// _, err = clientset.CoreV1().Services(namespace).Create(&service)
-		// if err != nil {
-		// 	err = errors.New("Unable to create component service: " + err.Error())
-		// 	return err
-		// }
-		// glog.V(0).Info("The service has been created.")
-
-		// _, err = clientset.AppsV1().Deployments(namespace).Create(&deploy)
-		// if err != nil {
-		// 	glog.V(0).Info("Unable to create component deployment: " + err.Error())
-		// 	err = errors.New("Unable to create component deployment: " + err.Error())
-		// 	return err
-		// }
-		// glog.V(0).Info("The deployment has been created.")
-		// glog.V(0).Info("===============================")
 
 		// Wait for the pod to run
 		glog.V(0).Info("Waiting for pod to run\n")

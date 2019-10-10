@@ -433,10 +433,6 @@ func deleteEnvVars(existingEnvs []corev1.EnvVar, envTobeDeleted string) []corev1
 func (c *Client) CreateComponentResources(params CreateArgs, commonObjectMeta metav1.ObjectMeta) error {
 	imageNS, imageName, imageTag, _, err := ParseImageName(params.ImageName)
 
-	fmt.Println("MJF CreateComponentResources imageNS " + imageNS)
-	fmt.Println("MJF CreateComponentResources imageName " + imageName)
-	fmt.Println("MJF CreateComponentResources imageTag " + imageTag)
-
 	if err != nil {
 		return errors.Wrap(err, "unable to create component resoures")
 	}
@@ -473,9 +469,6 @@ func (c *Client) CreateComponentResources(params CreateArgs, commonObjectMeta me
 		Namespace: imageNS,
 		Ports:     containerPorts,
 	}
-
-	fmt.Printf("commonImageMeta %+v\n", commonImageMeta)
-	fmt.Printf("inputEnvs %+v\n", inputEnvs)
 
 	// Generate the Deployment that will be used.
 	deployment := generateDeployment(

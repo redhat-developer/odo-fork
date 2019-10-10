@@ -146,46 +146,13 @@ func (po *PushOptions) createCmpIfNotExistsAndApplyCmpConfig(stdout io.Writer) e
 		return nil
 	}
 
-	// cmpName := po.localConfig.GetName()
-	// appName := po.localConfig.GetApplication()
-
-	// // First off, we check to see if the component exists. This is ran each time we do `udo push`
-	// s := log.Spinner("Checking component")
-	// defer s.End(false)
-	// isCmpExists, err := component.Exists(po.Context.Client, cmpName, appName)
-	// if err != nil {
-	// 	return errors.Wrapf(err, "failed to check if component %s exists or not", cmpName)
-	// }
-	// s.End(true)
-
 	// Output the "new" section (applying changes)
 	log.Info("\nConfiguration changes")
 
-	// If the component does not exist, we will create it for the first time.
-	// if !isCmpExists {
-
-	// s = log.Spinner("Creating component")
-	// defer s.End(false)
-
-	// Classic case of component creation
-	// if err = component.CreateComponent(po.Context.Client, *po.localConfig, po.componentContext, stdout, po.Context.DevPack, po.fullBuild); err != nil {
-	// 	log.Errorf(
-	// 		"Failed to create component with name %s. Please use `odo config view` to view settings used to create component. Error: %+v",
-	// 		cmpName,
-	// 		err,
-	// 	)
-	// 	os.Exit(1)
-	// }
-
-	// s.End(true)
-	// }
-
-	fmt.Printf("devPack %+v\n", po.Context.DevPack)
-
 	if po.Context.DevPack.Spec.Tasks[0].Type == "Shared" {
-		component.BuildTaskExec(po.Context.Client, *po.localConfig, "projA", po.fullBuild, po.Context.DevPack)
+		component.BuildTaskExec(po.Context.Client, *po.localConfig, po.fullBuild, po.Context.DevPack)
 	} else {
-		component.RunTaskExec(po.Context.Client, *po.localConfig, "projA", po.fullBuild, po.Context.DevPack)
+		component.RunTaskExec(po.Context.Client, *po.localConfig, po.fullBuild, po.Context.DevPack)
 	}
 
 	// TODO-KDO: Add when implementing update
@@ -219,40 +186,6 @@ func (po *PushOptions) Run() (err error) {
 	// po.sourcePath, err = po.localConfig.GetOSSourcePath()
 	// if err != nil {
 	// 	return errors.Wrap(err, "unable to retrieve OS source path to source location")
-	// }
-
-	// cmpName := po.localConfig.GetName()
-	// appName := po.localConfig.GetApplication()
-	// log.Infof("\nPushing to component %s of type %s", cmpName, po.sourceType)
-
-	// switch po.sourceType {
-	// case config.LOCAL:
-	// 	glog.V(4).Infof("Copying directory %s to pod", po.sourcePath)
-	// 	err = component.PushLocal(
-	// 		po.Context.Client,
-	// 		cmpName,
-	// 		appName,
-	// 		po.sourcePath,
-	// 		os.Stdout,
-	// 		[]string{},
-	// 		[]string{},
-	// 		true,
-	// 		util.GetAbsGlobExps(po.sourcePath, po.ignores),
-	// 		po.show,
-	// 		component.ContainerAttributes{ // TODO-KDO: Retrieve container attributes from IDP
-	// 			SrcPath:      "/projects",
-	// 			WorkingPaths: []string{""},
-	// 		},
-	// 	)
-
-	// 	if err != nil {
-	// 		return errors.Wrapf(err, fmt.Sprintf("Failed to push component: %v", cmpName))
-	// 	}
-
-	// default:
-	// 	if err != nil {
-	// 		return errors.Wrapf(err, fmt.Sprintf("Failed to push component %v because the source type is not recognized", cmpName))
-	// 	}
 	// }
 
 	log.Success("Changes successfully pushed to component")
