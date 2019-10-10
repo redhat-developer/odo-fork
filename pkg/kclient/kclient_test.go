@@ -410,8 +410,13 @@ func TestWaitAndGetPod(t *testing.T) {
 				return true, fkWatch, nil
 			})
 
-			podSelector := fmt.Sprintf("deploymentconfig=%s", tt.podName)
-			pod, err := fkclient.WaitAndGetPod(podSelector, corev1.PodRunning, "Waiting for component to start")
+			podSelector := fmt.Sprintf("deployment=%s", tt.podName)
+			timeout := int64(10)
+			watchOptions := metav1.ListOptions{
+				LabelSelector:  podSelector,
+				TimeoutSeconds: &timeout,
+			}
+			pod, err := fkclient.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for component to start")
 
 			if !tt.wantErr == (err != nil) {
 				t.Errorf(" client.WaitAndGetPod(string) unexpected error %v, wantErr %v", err, tt.wantErr)

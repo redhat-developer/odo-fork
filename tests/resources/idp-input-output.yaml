@@ -1,0 +1,56 @@
+apiVersion: codewind.dev/v1alpha1
+metadata: 
+  name: java-liberty-pack
+  language: java 
+  framework: liberty 
+  version: 0.0.1 
+  maintainers:  
+  - name: Jonathan West
+    email: jgwest@email.com
+    githubID: jgwest
+
+spec:
+  runtime:
+    image: websphere-liberty:19.0.0.3-webProfile7
+    overrideEntrypointTailToFile: /tmp/server.log
+    input:
+    - name: build-output
+      path: /config
+  tasks:
+    - name: full-maven-build
+      type: Shared
+      container: maven-build
+      command:
+      - "/data/idp/src/.udo/bin/build-container-full.sh"
+      workingDirectory: /data/idp/src
+      sourceMapping:
+        destPath: "/data/idp/src"
+        setExecuteBit: true
+      output:
+        - name: build-output
+          path: /build-output
+
+  shared:
+    containers:
+    - name: maven-build
+      image: docker.io/maven:3.6-jdk-8
+      volumeMappings: # Required: ability to map paths in the container to persistent volume paths
+      # At least one entry must be specified: A volume is required for shared/standalone tasks
+      - volumeName: shared-data-volume
+        containerPath: /data/idp/
+      # Map a directory for the task to copy data to runtime, or for some other arbitrary purpose
+      env: # Optional key/value env var pairs, as above
+
+      kubernetes: # Optional
+        # Defined same as above
+    
+    volumes: 
+    - name: shared-data-volume
+      # UDO will decide how to create the volume (RWO/RWX) based on how many tasks reference the container (if >1, then RWX)
+      size: 1Gi # kube only
+
+  scenarios:
+    - name: full-build
+      tasks: ["full-maven-build"]
+    - name: incremental-build
+      tasks: ["incremental-maven-build"] # incremental-maven-build not actually defined in this sample

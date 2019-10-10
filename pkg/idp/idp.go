@@ -13,6 +13,7 @@ import (
 	"github.com/redhat-developer/odo-fork/pkg/config"
 )
 
+// IDPYaml the file name of the IDP
 const IDPYaml = "idp.yaml"
 
 // Get loads in the project's idp.yaml from disk
@@ -71,25 +72,6 @@ func CopyLocalIDP(idpFile string) error {
 
 	// Write the idp.yaml to the local UDO config folder
 	return writeToUDOFolder(idpBytes)
-}
-
-// GetPorts returns a list of ports that were set in the IDP. Unset ports will not be returned
-func (i *IDP) GetPorts() []string {
-	var portList []string
-	if i.Spec.Runtime.Ports.InternalHTTPPort != "" {
-		portList = append(portList, i.Spec.Runtime.Ports.InternalHTTPPort)
-	}
-	if i.Spec.Runtime.Ports.InternalHTTPSPort != "" {
-		portList = append(portList, i.Spec.Runtime.Ports.InternalHTTPSPort)
-	}
-	if i.Spec.Runtime.Ports.InternalDebugPort != "" {
-		portList = append(portList, i.Spec.Runtime.Ports.InternalDebugPort)
-	}
-	if i.Spec.Runtime.Ports.InternalPerformancePort != "" {
-		portList = append(portList, i.Spec.Runtime.Ports.InternalPerformancePort)
-	}
-
-	return portList
 }
 
 // parseIDPYaml takes in an array of bytes and tries to unmarshall it into the IDP yaml struct
