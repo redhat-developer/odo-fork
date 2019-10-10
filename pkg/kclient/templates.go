@@ -92,7 +92,8 @@ func parseResourceQuantity(resQuantity string) (resource.Quantity, error) {
 // Returns:
 //	deployment generated using above parameters
 func generateDeployment(commonObjectMeta metav1.ObjectMeta, commonImageMeta CommonImageMeta,
-	envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, resourceRequirements *corev1.ResourceRequirements) appsv1.Deployment {
+	envVar []corev1.EnvVar, envFrom []corev1.EnvFromSource, resourceRequirements *corev1.ResourceRequirements,
+	useRuntime bool) appsv1.Deployment {
 
 	labels := map[string]string{
 		"app":        commonObjectMeta.Name,
@@ -102,6 +103,20 @@ func generateDeployment(commonObjectMeta metav1.ObjectMeta, commonImageMeta Comm
 	imageRef := commonImageMeta.Name + ":" + commonImageMeta.Tag
 	if len(commonImageMeta.Namespace) > 0 {
 		imageRef = commonImageMeta.Namespace + "/" + imageRef
+	}
+
+	containers := []corev1.Container{
+		{
+			Name:  commonObjectMeta.Name,
+			Image: imageRef,
+			Env:   envVar,
+			Ports: commonImageMeta.Ports,
+		},
+	}
+
+	if useRuntime {
+		containers[0].Command = []string{"/bin/sh", "-c", "--"}
+		containers[0].Args = []string{"tail -f /dev/null"}
 	}
 
 	replicas := int32(1)
@@ -122,16 +137,7 @@ func generateDeployment(commonObjectMeta metav1.ObjectMeta, commonImageMeta Comm
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:    commonObjectMeta.Name,
-							Image:   imageRef,
-							Env:     envVar,
-							Ports:   commonImageMeta.Ports,
-							Command: []string{"/bin/sh", "-c", "--"},
-							Args:    []string{"tail -f /dev/null"},
-						},
-					},
+					Containers: containers,
 				},
 			},
 		},

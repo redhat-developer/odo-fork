@@ -249,7 +249,7 @@ func GetComponentLinkedSecretNames(client *kclient.Client, componentName string,
 // CreateFromPath create new component with source or binary from the given local path
 // sourceType indicates the source type of the component and can be either local or binary
 // envVars is the array containing the environment variables
-func (b *BuildTask) CreateFromPath(client *kclient.Client, params kclient.CreateArgs, devPack *idp.IDP, fullBuild bool) error {
+func (b *BuildTask) CreateFromPath(client *kclient.Client, params kclient.CreateArgs, devPack *idp.IDP) error {
 	labels := componentlabels.GetLabels(params.Name, params.ApplicationName, true)
 
 	// Parse componentImageType before adding to labels
@@ -394,7 +394,7 @@ func Delete(client *kclient.Client, componentName string, applicationName string
 //		stdout: io.Writer instance to write output to
 //	Returns:
 //		err: errors if any
-func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, devPack *idp.IDP, fullBuild bool) (err error) {
+func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, devPack *idp.IDP, pvc *corev1.PersistentVolumeClaim) (err error) {
 
 	cmpName := componentConfig.GetName()
 	// cmpType := componentConfig.GetType()
@@ -416,18 +416,15 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 		ImageName:       imgName,
 		ApplicationName: appName,
 		EnvVars:         envVarsList.ToStringSlice(),
+		UseRunTime:      b.UseRuntime,
 	}
 	createArgs.SourceType = cmpSrcType
 	createArgs.SourcePath = componentConfig.GetSourceLocation()
 
 	if !b.UseRuntime {
 		storageToBeMounted := make(map[string]*corev1.PersistentVolumeClaim)
-		createdPVC, err := storage.Create(client, devPack.Spec.Shared.Volumes[0].Name, devPack.Spec.Shared.Volumes[0].Size, cmpName, appName)
-		if err != nil {
-			fmt.Println("Error creating PVC " + err.Error())
-			return err
-		}
-		storageToBeMounted[b.MountPath+"#"+b.SubPath] = createdPVC
+		// createdPVC, err := storage.Create(client, devPack.Spec.Shared.Volumes[0].Name, devPack.Spec.Shared.Volumes[0].Size, cmpName, appName)
+		storageToBeMounted[b.MountPath+"#"+b.SubPath] = pvc
 		createArgs.StorageToBeMounted = storageToBeMounted
 	}
 
@@ -469,11 +466,11 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 			return fmt.Errorf("component creation with args %+v as path needs to be a directory", createArgs)
 		}
 		// Create
-		if err = b.CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
+		if err = b.CreateFromPath(client, createArgs, devPack); err != nil {
 			return errors.Wrapf(err, "failed to create component with args %+v", createArgs)
 		}
 	case config.BINARY:
-		if err = b.CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
+		if err = b.CreateFromPath(client, createArgs, devPack); err != nil {
 			return errors.Wrapf(err, "failed to create component with args %+v", createArgs)
 		}
 	default:
@@ -484,7 +481,7 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 			return errors.Wrap(err, "failed to create component with current directory as source for the component")
 		}
 		createArgs.SourcePath = dir
-		if err = b.CreateFromPath(client, createArgs, devPack, fullBuild); err != nil {
+		if err = b.CreateFromPath(client, createArgs, devPack); err != nil {
 			return errors.Wrapf(err, "")
 		}
 	}

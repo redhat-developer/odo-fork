@@ -64,6 +64,7 @@ type CreateArgs struct {
 	Wait               bool
 	StorageToBeMounted map[string]*corev1.PersistentVolumeClaim
 	StdOut             io.Writer
+	UseRunTime         bool
 }
 
 const (
@@ -445,10 +446,23 @@ func (c *Client) CreateComponentResources(params CreateArgs, commonObjectMeta me
 		return errors.Wrapf(err, "error adding environment variables to the container")
 	}
 
+	// var containerPorts []corev1.ContainerPort
+
+	// for index, port := range params.Ports {
+	// 	portInt, _ := strconv.Atoi(port)
+	// 	containerPort := []corev1.ContainerPort{
+	// 		{
+	// 			ContainerPort: int32(portInt),
+	// 			Name:          "http" + strconv.Itoa(index),
+	// 		},
+	// 	}
+	// 	containerPorts = append(containerPorts, containerPort)
+	// }
+
 	// TODO-KDO: Get port information from component settings
 	containerPorts := []corev1.ContainerPort{
 		{
-			ContainerPort: int32(9090),
+			ContainerPort: int32(9080),
 			Name:          "http",
 		},
 	}
@@ -470,6 +484,7 @@ func (c *Client) CreateComponentResources(params CreateArgs, commonObjectMeta me
 		inputEnvs,
 		[]corev1.EnvFromSource{},
 		params.Resources,
+		params.UseRunTime,
 	)
 
 	// if len(inputEnvs) != 0 {
@@ -508,16 +523,17 @@ func (c *Client) CreateService(commonObjectMeta metav1.ObjectMeta, containerPort
 	var svcPorts []corev1.ServicePort
 	for _, containerPort := range containerPorts {
 		svcPort := corev1.ServicePort{
-			Name:       containerPort.Name,
-			Port:       containerPort.ContainerPort,
-			Protocol:   containerPort.Protocol,
-			TargetPort: intstr.FromInt(int(containerPort.ContainerPort)),
+			Name: containerPort.Name,
+			Port: containerPort.ContainerPort,
+			// Protocol:   containerPort.Protocol,
+			// TargetPort: intstr.FromInt(int(containerPort.ContainerPort)),
 		}
 		svcPorts = append(svcPorts, svcPort)
 	}
 	svc := corev1.Service{
 		ObjectMeta: commonObjectMeta,
 		Spec: corev1.ServiceSpec{
+			Type:  corev1.ServiceTypeNodePort,
 			Ports: svcPorts,
 			Selector: map[string]string{
 				"deployment": commonObjectMeta.Name,
