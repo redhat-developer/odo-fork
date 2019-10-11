@@ -11,14 +11,13 @@ func (i *IDP) GetScenario(name string) (SpecScenario, error) {
 		if name == s.Name {
 			return s, nil
 		}
-		// fmt.Println(reflect.TypeOf(s))
 	}
 	errMsg := fmt.Sprintf("No scenario found with the name %s", name)
 	return SpecScenario{}, errors.New(errMsg)
 }
 
-// GetTasksByScenario returns the tasks for a scenario
-func (i *IDP) GetTasksByScenario(scenario SpecScenario) []SpecTask {
+// GetTasks returns the tasks for a scenario
+func (i *IDP) GetTasks(scenario SpecScenario) []SpecTask {
 	var tasks []SpecTask
 
 	for _, t := range i.Spec.Tasks {
@@ -29,6 +28,25 @@ func (i *IDP) GetTasksByScenario(scenario SpecScenario) []SpecTask {
 		}
 	}
 	return tasks
+}
+
+// GetContainer returns the container for a given task
+func (i *IDP) GetContainer(task SpecTask) (interface{}, error) {
+	var taskContainer interface{}
+	var err error
+	if task.Type == RuntimeTask {
+		taskContainer = i.Spec.Runtime
+	} else {
+		for _, c := range i.Spec.Shared.Containers {
+			if c.Name == task.Container {
+				taskContainer = c
+			}
+		}
+	}
+	if taskContainer == nil {
+		err = errors.New("Task container not found")
+	}
+	return taskContainer, err
 }
 
 // GetPorts returns a list of ports that were set in the IDP. Unset ports will not be returned

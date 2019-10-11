@@ -21,7 +21,7 @@ type Spec struct {
 	Runtime   SpecRuntime    `yaml:"runtime"`
 	Shared    SpecShared     `yaml:"shared"`
 	Tasks     []SpecTask     `yaml:"tasks"`
-	Scenarios []SpecScenario `yaml:"scenario"`
+	Scenarios []SpecScenario `yaml:"scenarios"`
 }
 
 // SpecDev represents the fields under `spec.dev` in the idp.yaml
@@ -45,9 +45,9 @@ type SpecRuntime struct {
 
 // SpecShared represents shared settings and values to be used across the runtime and build containers
 type SpecShared struct {
-	Containers []SharedContainers `yaml:"containers"`
-	Volumes    []SharedVolumes    `yaml:"volumes"`
-	Env        []EnvVar           `yaml:"env"`
+	Containers []SharedContainer `yaml:"containers"`
+	Volumes    []SharedVolume    `yaml:"volumes"`
+	Env        []EnvVar          `yaml:"env"`
 }
 
 // SpecTask represents an IDP build task/step
@@ -63,7 +63,7 @@ type SpecTask struct {
 	Env              []EnvVar      `yaml:"env"`
 }
 
-type SharedContainers struct {
+type SharedContainer struct {
 	Name           string             `yaml:"name"`
 	Image          string             `yaml:"image"`
 	VolumeMappings []VolumeMapping    `yaml:"volumeMappings"`
@@ -144,9 +144,9 @@ type Logs struct {
 	Path string `yaml:"path"`
 }
 
-// SharedVolumes tells udo what RWX volumes to create (and how many) for the specific IDP
+// SharedVolume tells udo what RWX volumes to create (and how many) for the specific IDP
 // This does not override any volumes that the use may add with `udo volume ...`
-type SharedVolumes struct {
+type SharedVolume struct {
 	Name string `yaml:"name"`
 	size string `yaml:"size"`
 }

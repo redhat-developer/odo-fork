@@ -1,0 +1,110 @@
+apiVersion: codewind.dev/v1alpha1
+metadata: 
+  name: java-liberty-pack
+  language: java 
+  framework: liberty 
+  version: 0.0.1 
+  maintainers:  
+  - name: Jonathan West
+    email: jgwest@email.com
+    githubID: jgwest
+
+spec:
+
+  dev: 
+    watched:
+      # On the local machine, which path to watch, from the root folder of the project.
+      # For example /codewind-workspace/my-project would be /
+      watchDir: /src # Optional, otherwise assumed to be the root /
+      ignoredPaths: # Same format as filewatcher, Optional, if not specified then no excludes.
+      - /target
+      - /some.file
+
+    uploadFilter: # Unclear if we can just combine this with watch, or if it needs to be separate
+      ignoredPaths: # Same format as filewatcher, Optional, if not specified then no excludes.
+      - /target
+
+    typeDetection: # Optional: Rules that are used to detect if this IDP is applicable to a given project (eg OpenLiberty IDP for an OpenLiberty-based app)
+    # At least one rule must match for a type; ie this is an OR clause list, not an AND clause list.
+    - pathSelector: # At least one 'pathSelector' entry must exist if typeDetection is specified
+        # Optional, Either a 'rootPath' xor a 'filenameWildcard' must be specified
+        rootPath: # example: /pom.xml, or /go.mod
+        filenameWildcard: # example: server.xml, or *.go; this means recursively walk a project and look for filenames that match this pattern. Same pattern style as filewatcher.
+      textStringsToMatch: # Optional: If a file matches one of the selectors, then look for at least one of these strings (ie OR clause list, not AND clause list). 
+      - net.wasdev.wlp.maven.plugins # Example: if this ID is found in the file, then this IDP should be considered to be applicable to the project
+    
+  runtime:
+    
+    image: maysunfaisal/libertymvnjava
+
+    # If this field is specified, the `ENTRYPOINT` of the container will be replaced with:
+    # a container command of "sh -c `mkdir -p (parent dit); touch (path specified); tail -f (path specified)`"
+    overrideEntrypointTailToFile: /dev/null # file path within the container to tail
+    
+    endpoints: # Not optional if HTTP(S) port is specified
+      containerHealth: /health # How to tell the container is healthy
+      appRoot: /app # Not a health check
+
+    ports: # All are optional, display a warning if neither HTTP port is specified
+      internalHttpPort: 9080 
+      internalHttpsPort: 9443
+      internalDebugPort: 7777
+      internalPerformancePort: 9050
+      
+    logs: # Optional: Ability to reference arbitrary log file types that aren't included in container stderr/stdout
+    - type: some.type
+      path: /logs/(etc)
+
+    volumeMappings: #  Optional: ability to map paths in the container to persistent volume paths
+    - volumeName: shared-data-volume
+      containerPath: /home/default/idp
+
+  shared:
+    
+    volumes: 
+    - name: shared-data-volume
+      # UDO will decide how to create the volume (RWO/RWX) based on how many tasks reference the container (if >1, then RWX)
+      size: 1Gi # kube only
+
+  tasks:
+    # Task containers will ALWAYS stay up and be reused after they are used (eg they will never be disposed of after a single use).
+    # Tasks that share the same build image will ALWAYS run in the same container during a scenario.
+    - name: full-maven-build
+      type: Runtime # Required field: One of: Runtime (task runs in runtime container), Shared (task runs outside runtime, but shares a container with another task), Standalone (task runs outside runtime, should not share a container with another task)
+      command: ["/home/default/idp/src/.udo/bin/runtime-container-full.sh"] # could also just be a normal command ala `mvn clean package`
+      # Tasks containers will always be started with a command to tail -f /dev/null, so that they persist. The actual tasks themselves will be run w/ kubectl exec
+      workingDirectory: /home/default/idp/src # optional, where in the container to run the command
+      logs: # Ability to reference arbitrary log file types that aren't included in container stderr/stdout
+      - type: maven.build
+        path: /logs/(etc)
+      sourceMapping: # Optional: Ability to map files in the local project directory (eg the user's current working dir)` into the container
+        destPath: "/home/default/idp/src" # path inside container to copy the folder
+        setExecuteBit: true # Set execute bit on all files in the directory
+      # This is used to know where the source files should be copied into the container, might be useful for other scenarios like customization
+      # Path should be a valid path within the container (but if volumes are mapped into paths in the container, you can use those volume paths)
+      env: # Optional key/value env var pairs, as above
+      # Values specified here will replace those specified in container, if there is an overlap.
+        # Task containers will ALWAYS stay up and be reused after they are used (eg they will never be disposed of after a single use).
+    # Tasks that share the same build image will ALWAYS run in the same container during a scenario.
+    - name: incremental-maven-build
+      type: Runtime # Required field: One of: Runtime (task runs in runtime container), Shared (task runs outside runtime, but shares a container with another task), Standalone (task runs outside runtime, should not share a container with another task)
+      command: ["/home/default/idp/src/.udo/bin/runtime-container-update.sh"] # could also just be a normal command ala `mvn clean package`
+      # Tasks containers will always be started with a command to tail -f /dev/null, so that they persist. The actual tasks themselves will be run w/ kubectl exec
+      workingDirectory: /home/default/idp/src # optional, where in the container to run the command
+      logs: # Ability to reference arbitrary log file types that aren't included in container stderr/stdout
+      - type: maven.build
+        path: /logs/(etc)
+      sourceMapping: # Optional: Ability to map files in the local project directory (eg the user's current working dir)` into the container
+        destPath: "/home/default/idp/src" # path inside container to copy the folder
+        setExecuteBit: true # Set execute bit on all files in the directory
+      # This is used to know where the source files should be copied into the container, might be useful for other scenarios like customization
+      # Path should be a valid path within the container (but if volumes are mapped into paths in the container, you can use those volume paths)
+      env: # Optional key/value env var pairs, as above
+      # Values specified here will replace those specified in container, if there is an overlap.
+
+
+  scenarios:
+    - name: full-build
+      tasks: ["full-maven-build"]
+    - name: incremental-build
+      tasks: ["incremental-maven-build"] # incremental-maven-build not actually defined in this sample

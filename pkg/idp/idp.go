@@ -13,8 +13,11 @@ import (
 	"github.com/redhat-developer/odo-fork/pkg/config"
 )
 
-// IDPYaml the file name of the IDP
-const IDPYaml = "idp.yaml"
+// IDP constants
+const (
+	IDPYaml     = "idp.yaml"
+	RuntimeTask = "Runtime"
+)
 
 // Get loads in the project's idp.yaml from disk
 func Get() (*IDP, error) {
