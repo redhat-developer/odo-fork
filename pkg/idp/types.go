@@ -148,7 +148,7 @@ type Logs struct {
 // This does not override any volumes that the use may add with `udo volume ...`
 type SharedVolume struct {
 	Name string `yaml:"name"`
-	size string `yaml:"size"`
+	Size string `yaml:"size"`
 }
 
 // EnvVar represents a key/value mapping of environment vars to use in runtime and build containers
