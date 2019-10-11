@@ -570,7 +570,7 @@ func ValidateComponentCreateRequest(client *kclient.Client, componentSettings co
 //  	cmpExist: true if components exists in the cluster
 // Returns:
 //	err: Errors if any else nil
-func ApplyConfig(client *kclient.Client, componentConfig config.LocalConfigInfo, stdout io.Writer, cmpExist bool) (err error) {
+func ApplyConfig(client *kclient.Client, componentConfig config.LocalConfigInfo, stdout io.Writer) (err error) {
 
 	// s := log.Spinner("Applying configuration")
 	// defer s.End(false)

@@ -516,17 +516,17 @@ func (c *Client) CreateService(commonObjectMeta metav1.ObjectMeta, containerPort
 	var svcPorts []corev1.ServicePort
 	for _, containerPort := range containerPorts {
 		svcPort := corev1.ServicePort{
-			Name: containerPort.Name,
-			Port: containerPort.ContainerPort,
-			// Protocol:   containerPort.Protocol,
-			// TargetPort: intstr.FromInt(int(containerPort.ContainerPort)),
+			Name:       containerPort.Name,
+			Port:       containerPort.ContainerPort,
+			Protocol:   containerPort.Protocol,
+			TargetPort: intstr.FromInt(int(containerPort.ContainerPort)),
 		}
 		svcPorts = append(svcPorts, svcPort)
 	}
 	svc := corev1.Service{
 		ObjectMeta: commonObjectMeta,
 		Spec: corev1.ServiceSpec{
-			Type:  corev1.ServiceTypeNodePort,
+			// Type:  corev1.ServiceTypeNodePort,
 			Ports: svcPorts,
 			Selector: map[string]string{
 				"deployment": commonObjectMeta.Name,
