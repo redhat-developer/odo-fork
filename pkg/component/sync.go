@@ -25,7 +25,7 @@ func syncProjectToRunningContainer(client *kclient.Client, watchOptions metav1.L
 	podName := po.Name
 	glog.V(0).Info("The Pod is up and running: " + podName)
 
-	s := log.Spinner("Syncing project to component pod")
+	s := log.Spinner("Syncing project to the pod " + podName)
 	defer s.End(false)
 
 	// Before Syncing, create the destination directory in the Build Container

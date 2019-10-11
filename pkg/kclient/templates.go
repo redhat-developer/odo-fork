@@ -107,16 +107,13 @@ func generateDeployment(commonObjectMeta metav1.ObjectMeta, commonImageMeta Comm
 
 	containers := []corev1.Container{
 		{
-			Name:  commonObjectMeta.Name,
-			Image: imageRef,
-			Env:   envVar,
-			Ports: commonImageMeta.Ports,
+			Name:    commonObjectMeta.Name,
+			Image:   imageRef,
+			Env:     envVar,
+			Ports:   commonImageMeta.Ports,
+			Command: []string{"/bin/sh", "-c", "--"},
+			Args:    []string{"tail -f /dev/null"},
 		},
-	}
-
-	if useRuntime {
-		containers[0].Command = []string{"/bin/sh", "-c", "--"}
-		containers[0].Args = []string{"tail -f /dev/null"}
 	}
 
 	replicas := int32(1)

@@ -145,7 +145,7 @@ func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInf
 			if scenario.Name == "full-build" {
 				for _, scenariotask := range scenario.Tasks {
 					for _, task := range devPack.Spec.Tasks {
-						if scenariotask == task.Name {
+						if scenariotask == task.Name && task.Type == "Shared" {
 							err = executetask(Client, strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName)
 							if err != nil {
 								glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName, err)
@@ -223,6 +223,31 @@ func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInf
 			return err
 		}
 		s.End(true)
+	}
+
+	if fullBuild {
+		for _, scenario := range devPack.Spec.Scenarios {
+			if scenario.Name == "full-build" {
+				for _, scenariotask := range scenario.Tasks {
+					for _, task := range devPack.Spec.Tasks {
+						if scenariotask == task.Name && task.Type == "Runtime" {
+							po, _ = Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if the Runtime Container is up before executing the Runtime Tasks")
+							if po != nil {
+								glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
+								RuntimeTaskInstance.PodName = po.Name
+
+								err = executetask(Client, strings.Join(task.Command, " "), RuntimeTaskInstance.PodName)
+								if err != nil {
+									glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), RuntimeTaskInstance.PodName, err)
+									err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
+									return err
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	return nil
