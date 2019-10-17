@@ -67,27 +67,6 @@ func (i *IDP) GetContainer(task SpecTask) (TaskContainerInfo, error) {
 	return taskContainerInfo, err
 }
 
-// IsBuildTaskImpl checks if the IDP should be processed as a Build Task Impl or a Runtime Task Impl
-// If there is a single Shared task type, udo push will build using the project using build containers
-func (i *IDP) IsBuildTaskImpl() (bool, error) {
-	isShared := false
-	scenario, err := i.GetScenario("full-build")
-	if err != nil {
-		return isShared, err
-	}
-	var tasks []SpecTask
-	tasks = i.GetTasks(scenario)
-
-	for _, task := range tasks {
-		if task.Type == "Shared" {
-			isShared = true
-			break
-		}
-	}
-
-	return isShared, nil
-}
-
 // GetSharedVolumes returns the list of Shared Volumes
 func (i *IDP) GetSharedVolumes() []SharedVolume {
 	var sharedVolumes []SharedVolume

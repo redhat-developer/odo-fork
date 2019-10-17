@@ -84,15 +84,15 @@ type BuildTask struct {
 	PodName            string
 	Namespace          string
 	WorkspaceID        string
-	PVCName            string
 	ServiceAccountName string
 	PullSecret         string
 	OwnerReferenceName string
 	OwnerReferenceUID  types.UID
 	Privileged         bool
 	Ingress            string
-	MountPath          string
-	SubPath            string
+	PVCName            []string
+	MountPath          []string
+	SubPath            []string
 	Labels             map[string]string
 	Command            []string
 	SrcDestination     string
@@ -366,7 +366,7 @@ func Delete(client *kclient.Client, componentName string, applicationName string
 //		stdout: io.Writer instance to write output to
 //	Returns:
 //		err: errors if any
-func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, devPack *idp.IDP, pvc *corev1.PersistentVolumeClaim) (err error) {
+func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, devPack *idp.IDP, pvc []*corev1.PersistentVolumeClaim) (err error) {
 
 	cmpName := componentConfig.GetName()
 	// cmpType := componentConfig.GetType()
@@ -396,7 +396,9 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 	if b.UseRuntime {
 		glog.V(0).Info("MJF yes it is runtime")
 		storageToBeMounted := make(map[string]*corev1.PersistentVolumeClaim)
-		storageToBeMounted[b.MountPath+"#"+b.SubPath] = pvc
+		for i := range b.PVCName {
+			storageToBeMounted[b.MountPath[i]+"#"+b.SubPath[i]] = pvc[i]
+		}
 		createArgs.StorageToBeMounted = storageToBeMounted
 	}
 

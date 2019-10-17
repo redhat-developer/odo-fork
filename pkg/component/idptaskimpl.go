@@ -16,8 +16,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BuildTaskExec is the Build Task execution implementation of the IDP build task
-func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fullBuild bool, devPack *idp.IDP) error {
+// TaskExec is the Build Task or the Runtime Task execution implementation of the IDP
+func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fullBuild bool, devPack *idp.IDP) error {
 	// clientset := Client.KubeClient
 	namespace := Client.Namespace
 	cmpName := componentConfig.GetName()
@@ -128,8 +128,9 @@ func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInf
 		}
 
 		containerImage := taskContainerInfo.Image
-		var containerName, pvcClaimName, mountPath, subPath, trimmedNamespacedKubernetesObject, srcDestination string
-		var cmpPVC *corev1.PersistentVolumeClaim
+		var containerName, trimmedNamespacedKubernetesObject, srcDestination string
+		var pvcClaimName, mountPath, subPath []string
+		var cmpPVC []*corev1.PersistentVolumeClaim
 
 		if len(namespacedKubernetesObject) > 40 {
 			trimmedNamespacedKubernetesObject = namespacedKubernetesObject[:40]
@@ -146,10 +147,10 @@ func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInf
 			}
 		}
 		for _, vm := range taskContainerInfo.VolumeMappings {
-			cmpPVC = idpPVC[vm.VolumeName]
-			pvcClaimName = idpPVC[vm.VolumeName].GetName()
-			mountPath = vm.ContainerPath
-			subPath = vm.SubPath
+			cmpPVC = append(cmpPVC, idpPVC[vm.VolumeName])
+			pvcClaimName = append(pvcClaimName, idpPVC[vm.VolumeName].Name)
+			mountPath = append(mountPath, vm.ContainerPath)
+			subPath = append(subPath, vm.SubPath)
 		}
 
 		if len(task.SourceMapping.DestPath) > 0 {
@@ -196,10 +197,8 @@ func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInf
 			if !foundReusableBuildContainer {
 				glog.V(0).Info("===============================")
 				glog.V(0).Info("Creating a pod...")
-				volumes, volumeMounts := SetVolumes(BuildTaskInstance)
-				envVars := SetEnvVars(BuildTaskInstance)
 
-				pod, err := Client.CreatePod(BuildTaskInstance.Name, BuildTaskInstance.ContainerName, BuildTaskInstance.Image, BuildTaskInstance.ServiceAccountName, BuildTaskInstance.Labels, volumes, volumeMounts, envVars, BuildTaskInstance.Privileged)
+				pod, err := Client.CreatePod(BuildTaskInstance.Name, BuildTaskInstance.ContainerName, BuildTaskInstance.Image, BuildTaskInstance.ServiceAccountName, BuildTaskInstance.Labels, BuildTaskInstance.PVCName, BuildTaskInstance.MountPath, BuildTaskInstance.SubPath, BuildTaskInstance.Privileged)
 				if err != nil {
 					glog.V(0).Info("Failed to create a pod: " + err.Error())
 					err = errors.New("Failed to create a pod " + BuildTaskInstance.Name)
@@ -304,192 +303,6 @@ func BuildTaskExec(Client *kclient.Client, componentConfig config.LocalConfigInf
 			}
 		}
 	}
-
-	// // Create the Reusable Build Container deployment object
-	// ReusableBuildContainerInstance := BuildTask{
-	// 	UseRuntime:         false,
-	// 	Kind:               ReusableBuildContainerType,
-	// 	Name:               namespacedKubernetesObject[:40] + "-build-container",
-	// 	Image:              devPack.Spec.Shared.Containers[0].Image,
-	// 	ContainerName:      devPack.Spec.Shared.Containers[0].Name,
-	// 	Namespace:          namespace,
-	// 	PVCName:            idpClaimName,
-	// 	ServiceAccountName: serviceAccountName,
-	// 	// OwnerReferenceName: ownerReferenceName,
-	// 	// OwnerReferenceUID:  ownerReferenceUID,
-	// 	Privileged: true,
-	// 	MountPath:  devPack.Spec.Shared.Containers[0].VolumeMappings[0].ContainerPath,
-	// 	SubPath:    "projects/",
-	// }
-	// ReusableBuildContainerInstance.Labels = map[string]string{
-	// 	"app": ReusableBuildContainerInstance.Name,
-	// }
-
-	// Check if the Reusable Build Container has already been deployed
-	// Check if the pod is running and grab the pod name
-	// glog.V(0).Infof("Checking if Reusable Build Container has already been deployed...\n")
-	// foundReusableBuildContainer := false
-	// timeout := int64(10)
-	// watchOptions := metav1.ListOptions{
-	// 	LabelSelector:  "app=" + ReusableBuildContainerInstance.Name,
-	// 	TimeoutSeconds: &timeout,
-	// }
-	// po, _ := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Reusable Container is up")
-	// if po != nil {
-	// 	glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
-	// 	ReusableBuildContainerInstance.PodName = po.Name
-	// 	foundReusableBuildContainer = true
-	// }
-
-	// if !foundReusableBuildContainer {
-	// 	glog.V(0).Info("===============================")
-	// 	glog.V(0).Info("Creating a pod...")
-	// 	volumes, volumeMounts := SetVolumes(ReusableBuildContainerInstance)
-	// 	envVars := SetEnvVars(ReusableBuildContainerInstance)
-
-	// 	pod, err := Client.CreatePod(ReusableBuildContainerInstance.Name, ReusableBuildContainerInstance.ContainerName, ReusableBuildContainerInstance.Image, ReusableBuildContainerInstance.ServiceAccountName, ReusableBuildContainerInstance.Labels, volumes, volumeMounts, envVars, ReusableBuildContainerInstance.Privileged)
-	// 	if err != nil {
-	// 		glog.V(0).Info("Failed to create a pod: " + err.Error())
-	// 		err = errors.New("Failed to create a pod " + ReusableBuildContainerInstance.Name)
-	// 		return err
-	// 	}
-	// 	glog.V(0).Info("Created pod: " + pod.GetName())
-	// 	glog.V(0).Info("===============================")
-	// 	// Wait for pods to start and grab the pod name
-	// 	glog.V(0).Infof("Waiting for pod to run\n")
-	// 	watchOptions := metav1.ListOptions{
-	// 		LabelSelector: "app=" + ReusableBuildContainerInstance.Name,
-	// 	}
-	// 	po, err := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Reusable Build Container to run")
-	// 	if err != nil {
-	// 		err = errors.New("The Reusable Build Container failed to run")
-	// 		return err
-	// 	}
-
-	// 	ReusableBuildContainerInstance.PodName = po.Name
-	// }
-
-	// glog.V(0).Infof("The Reusable Build Container Pod Name: %s\n", ReusableBuildContainerInstance.PodName)
-
-	// watchOptions = metav1.ListOptions{
-	// 	LabelSelector: "app=" + ReusableBuildContainerInstance.Name,
-	// }
-	// err = syncProjectToRunningContainer(Client, watchOptions, cwd, ReusableBuildContainerInstance.MountPath+"/src")
-	// if err != nil {
-	// 	glog.V(0).Infof("Error occured while syncing to the pod %s: %s\n", ReusableBuildContainerInstance.PodName, err)
-	// 	err = errors.New("Unable to sync to the pod: " + err.Error())
-	// 	return err
-	// }
-
-	// if fullBuild {
-	// 	for _, scenario := range devPack.Spec.Scenarios {
-	// 		if scenario.Name == "full-build" {
-	// 			for _, scenariotask := range scenario.Tasks {
-	// 				for _, task := range devPack.Spec.Tasks {
-	// 					if scenariotask == task.Name && task.Type == "Shared" {
-	// 						err = executetask(Client, strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName)
-	// 						if err != nil {
-	// 							glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName, err)
-	// 							err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
-	// 							return err
-	// 						}
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// } else {
-	// 	for _, scenario := range devPack.Spec.Scenarios {
-	// 		if scenario.Name == "incremental-build" {
-	// 			for _, scenariotask := range scenario.Tasks {
-	// 				for _, task := range devPack.Spec.Tasks {
-	// 					if scenariotask == task.Name {
-	// 						err = executetask(Client, strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName)
-	// 						if err != nil {
-	// 							glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), ReusableBuildContainerInstance.PodName, err)
-	// 							err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
-	// 							return err
-	// 						}
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// // Create the Runtime Task Instance
-	// RuntimeTaskInstance := BuildTask{
-	// 	UseRuntime:         false,
-	// 	Kind:               ComponentType,
-	// 	Name:               namespacedKubernetesObject[:40] + "-runtime",
-	// 	Image:              devPack.Spec.Runtime.Image,
-	// 	ContainerName:      namespacedKubernetesObject[:40] + "-container",
-	// 	Namespace:          namespace,
-	// 	PVCName:            idpClaimName,
-	// 	ServiceAccountName: serviceAccountName,
-	// 	// OwnerReferenceName: ownerReferenceName,
-	// 	// OwnerReferenceUID:  ownerReferenceUID,
-	// 	Privileged: true,
-	// 	MountPath:  devPack.Spec.Runtime.VolumeMappings[0].ContainerPath,
-	// 	SubPath:    "projects/buildartifacts/",
-	// }
-
-	// foundRuntimeContainer := false
-	// timeout = int64(10)
-	// watchOptions = metav1.ListOptions{
-	// 	LabelSelector:  "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
-	// 	TimeoutSeconds: &timeout,
-	// }
-	// po, _ = Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Runtime Container has already been deployed")
-	// if po != nil {
-	// 	glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
-	// 	RuntimeTaskInstance.PodName = po.Name
-	// 	foundRuntimeContainer = true
-	// }
-
-	// if !foundRuntimeContainer {
-	// 	// Deploy the application if it is a full build type and a running pod is not found
-	// 	glog.V(0).Info("Deploying the application")
-
-	// 	RuntimeTaskInstance.Labels = map[string]string{
-	// 		"app":     RuntimeTaskInstance.Name + "-selector",
-	// 		"chart":   RuntimeTaskInstance.Name + "-1.0.0",
-	// 		"release": RuntimeTaskInstance.Name,
-	// 	}
-
-	// 	s := log.Spinner("Creating component")
-	// 	defer s.End(false)
-	// 	if err = RuntimeTaskInstance.CreateComponent(Client, componentConfig, devPack, cmpPVC); err != nil {
-	// 		err = errors.New("Unable to create component deployment: " + err.Error())
-	// 		return err
-	// 	}
-	// 	s.End(true)
-	// }
-
-	// if fullBuild {
-	// 	for _, scenario := range devPack.Spec.Scenarios {
-	// 		if scenario.Name == "full-build" {
-	// 			for _, scenariotask := range scenario.Tasks {
-	// 				for _, task := range devPack.Spec.Tasks {
-	// 					if scenariotask == task.Name && task.Type == "Runtime" {
-	// 						po, _ = Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if the Runtime Container is up before executing the Runtime Tasks")
-	// 						if po != nil {
-	// 							glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
-	// 							RuntimeTaskInstance.PodName = po.Name
-
-	// 							err = executetask(Client, strings.Join(task.Command, " "), RuntimeTaskInstance.PodName)
-	// 							if err != nil {
-	// 								glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), RuntimeTaskInstance.PodName, err)
-	// 								err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
-	// 								return err
-	// 							}
-	// 						}
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
 
 	return nil
 }

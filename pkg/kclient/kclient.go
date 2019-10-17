@@ -570,7 +570,7 @@ func updateEnvVar(deployment *appsv1.Deployment, envVars []corev1.EnvVar) error 
 }
 
 // CreatePod creates a pod with the specifications and tails /dev/null for the entrypoint
-func (c *Client) CreatePod(podName, containerName, image, serviceAccountName string, labels map[string]string, volumes []corev1.Volume, volumeMounts []corev1.VolumeMount, envVars []corev1.EnvVar, privileged bool) (*corev1.Pod, error) {
+func (c *Client) CreatePod(podName, containerName, image, serviceAccountName string, labels map[string]string, pvcNames, mountPath, subPath []string, privileged bool) (*corev1.Pod, error) {
 	container := []corev1.Container{
 		{
 			Name:            containerName,
@@ -579,10 +579,9 @@ func (c *Client) CreatePod(podName, containerName, image, serviceAccountName str
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: &privileged,
 			},
-			VolumeMounts: volumeMounts,
-			Command:      []string{"tail"},
-			Args:         []string{"-f", "/dev/null"},
-			Env:          envVars,
+			Command: []string{"tail"},
+			Args:    []string{"-f", "/dev/null"},
+			Env:     []corev1.EnvVar{},
 		},
 	}
 	pod := &corev1.Pod{
@@ -597,9 +596,15 @@ func (c *Client) CreatePod(podName, containerName, image, serviceAccountName str
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: serviceAccountName,
-			Volumes:            volumes,
 			Containers:         container,
 		},
+	}
+
+	for i, pvcName := range pvcNames {
+		err := AddPVCToPod(pod, pvcName, mountPath[i], subPath[i])
+		if err != nil {
+			return nil, errors.New("Unable to add volumes to the pod: " + err.Error())
+		}
 	}
 
 	pod, err := c.KubeClient.CoreV1().Pods(c.Namespace).Create(pod)

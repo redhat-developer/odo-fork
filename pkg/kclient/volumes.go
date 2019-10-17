@@ -72,6 +72,33 @@ func (c *Client) AddPVCToDeployment(dep *appsv1.Deployment, pvc string, path, su
 	return nil
 }
 
+// AddPVCToPod adds the given PVC to the given pod
+// at the given path
+func AddPVCToPod(pod *corev1.Pod, pvc, path, subPath string) error {
+	volumeName := generateVolumeNameFromPVC(pvc)
+
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: pvc,
+			},
+		},
+	})
+
+	// Validating pod.Spec.Containers[] is present before dereferencing
+	if len(pod.Spec.Containers) == 0 {
+		return fmt.Errorf("Pod %s doesn't have any Containers defined", pod.Name)
+	}
+	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: path,
+		SubPath:   subPath,
+	},
+	)
+	return nil
+}
+
 // UpdatePVCLabels updates the given PVC with the given labels
 func (c *Client) UpdatePVCLabels(pvc *corev1.PersistentVolumeClaim, labels map[string]string) error {
 	pvc.Labels = labels
