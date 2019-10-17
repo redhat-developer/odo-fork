@@ -149,11 +149,18 @@ func (po *PushOptions) createCmpIfNotExistsAndApplyCmpConfig(stdout io.Writer) e
 	// Output the "new" section (applying changes)
 	log.Info("\nConfiguration changes")
 
-	if po.Context.DevPack.Spec.Tasks[0].Type == "Shared" {
-		component.BuildTaskExec(po.Context.Client, *po.localConfig, po.fullBuild, po.Context.DevPack)
-	} else {
-		component.RunTaskExec(po.Context.Client, *po.localConfig, po.fullBuild, po.Context.DevPack)
-	}
+	// IsBuildTaskImpl, err := po.Context.DevPack.IsBuildTaskImpl()
+	// if err != nil {
+	// 	kdoutil.LogErrorAndExit(err, "Failed to get the IDP Task Implementation")
+	// }
+
+	// if IsBuildTaskImpl {
+	// 	component.BuildTaskExec(po.Context.Client, *po.localConfig, po.fullBuild, po.Context.DevPack)
+	// } else {
+	// 	component.RunTaskExec(po.Context.Client, *po.localConfig, po.fullBuild, po.Context.DevPack)
+	// }
+
+	component.BuildTaskExec(po.Context.Client, *po.localConfig, po.fullBuild, po.Context.DevPack)
 
 	// TODO-KDO: Add when implementing update
 	// // Apply config

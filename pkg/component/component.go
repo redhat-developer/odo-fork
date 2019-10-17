@@ -94,6 +94,8 @@ type BuildTask struct {
 	MountPath          string
 	SubPath            string
 	Labels             map[string]string
+	Command            []string
+	SrcDestination     string
 }
 
 // GetDefaultComponentName generates a unique component name
@@ -391,7 +393,8 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 	createArgs.SourceType = cmpSrcType
 	createArgs.SourcePath = componentConfig.GetSourceLocation()
 
-	if !b.UseRuntime {
+	if b.UseRuntime {
+		glog.V(0).Info("MJF yes it is runtime")
 		storageToBeMounted := make(map[string]*corev1.PersistentVolumeClaim)
 		storageToBeMounted[b.MountPath+"#"+b.SubPath] = pvc
 		createArgs.StorageToBeMounted = storageToBeMounted

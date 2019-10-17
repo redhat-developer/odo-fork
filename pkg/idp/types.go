@@ -171,4 +171,5 @@ type SourceMapping struct {
 type VolumeMapping struct {
 	VolumeName    string `yaml:"volumeName"`
 	ContainerPath string `yaml:"containerPath"`
+	SubPath       string `yaml:"subPath"`
 }

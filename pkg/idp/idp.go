@@ -17,6 +17,7 @@ import (
 const (
 	IDPYaml     = "idp.yaml"
 	RuntimeTask = "Runtime"
+	SharedTask  = "Shared"
 )
 
 // Get loads in the project's idp.yaml from disk
