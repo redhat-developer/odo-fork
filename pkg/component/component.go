@@ -394,7 +394,6 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 	createArgs.SourcePath = componentConfig.GetSourceLocation()
 
 	if b.UseRuntime {
-		glog.V(0).Info("MJF yes it is runtime")
 		storageToBeMounted := make(map[string]*corev1.PersistentVolumeClaim)
 		for i := range b.PVCName {
 			storageToBeMounted[b.MountPath[i]+"#"+b.SubPath[i]] = pvc[i]

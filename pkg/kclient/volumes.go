@@ -180,9 +180,7 @@ func generateVolumeNameFromPVC(pvc string) string {
 
 // addOrRemoveVolumeAndVolumeMount mounts or unmounts PVCs from the given deployment
 func addOrRemoveVolumeAndVolumeMount(client *Client, dep *appsv1.Deployment, storageToMount map[string]*corev1.PersistentVolumeClaim, storageUnMount map[string]string) error {
-	glog.V(0).Info("MJF addOrRemoveVolumeAndVolumeMount")
 	if len(dep.Spec.Template.Spec.Containers) == 0 || len(dep.Spec.Template.Spec.Containers) > 1 {
-		glog.V(0).Info("MJF addOrRemoveVolumeAndVolumeMount returning cuz containers")
 		return fmt.Errorf("either no container or more than one container found in deployment")
 	}
 
@@ -199,7 +197,6 @@ func addOrRemoveVolumeAndVolumeMount(client *Client, dep *appsv1.Deployment, sto
 			}
 		}
 	}
-	glog.V(0).Info("MJF addOrRemoveVolumeAndVolumeMount before subpath and path")
 
 	for pathAndSubPath, pvc := range storageToMount {
 		isSubPathMentioned := strings.Contains(pathAndSubPath, "#")
@@ -210,9 +207,6 @@ func addOrRemoveVolumeAndVolumeMount(client *Client, dep *appsv1.Deployment, sto
 		} else {
 			path = pathAndSubPath
 		}
-		glog.V(0).Info("MJF pvc.Name " + pvc.Name)
-		glog.V(0).Info("MJF path " + path)
-		glog.V(0).Info("MJF subPath " + subPath)
 		err := client.AddPVCToDeployment(dep, pvc.Name, path, subPath)
 		if err != nil {
 			return errors.Wrap(err, "unable to add pvc to deployment")

@@ -44,10 +44,9 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 	var idpTasks []idp.SpecTask
 	idpTasks = devPack.GetTasks(idpScenario)
 
-	// idpClaimName := ""
-	// var cmpPVC *corev1.PersistentVolumeClaim
-
 	// Get the Shared Volumes
+	// This may need to be updated to handle mount and unmount of PVCs,
+	// if user updates idp.yaml, check storage.go's Push() func for ref
 	idpPVC := make(map[string]*corev1.PersistentVolumeClaim)
 	sharedVolumes := devPack.GetSharedVolumes()
 
@@ -75,32 +74,6 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 		glog.V(0).Infof("Using PVC: %s\n", idpPVC[vol.Name].GetName())
 	}
 
-	// PVCs, err := Client.GetPVCsFromSelector("app.kubernetes.io/component-name=" + cmpName + ",app.kubernetes.io/storage-name=" + cmpName)
-	// if err != nil {
-	// 	glog.V(0).Infof("Error occured while getting the PVC")
-	// 	err = errors.New("Unable to get the PVC: " + err.Error())
-	// 	return err
-	// }
-	// if len(PVCs) == 1 {
-	// 	cmpPVC = &PVCs[0]
-	// }
-
-	// if len(PVCs) == 0 {
-	// 	// sharedVolumes := devPack.GetSharedVolumes()
-	// 	for _, v := range sharedVolumes {
-	// 		cmpPVC, err = storage.Create(Client, v.Name, v.Size, cmpName, appName)
-	// 		if err != nil {
-	// 			glog.V(0).Infof("Error creating the PVC")
-	// 			err = errors.New("Error creating the PVC: " + err.Error())
-	// 			return err
-	// 		}
-	// 	}
-	// }
-
-	// idpClaimName = cmpPVC.GetName()
-
-	// glog.V(0).Infof("Persistent Volume Claim: %s\n", idpClaimName)
-
 	serviceAccountName := "default"
 	glog.V(0).Infof("Service Account: %s\n", serviceAccountName)
 
@@ -112,7 +85,7 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 	}
 	glog.V(0).Infof("CWD: %s\n", cwd)
 
-	// var TaskInstance map[string]BuildTask
+	timeout := int64(10)
 
 	for _, task := range idpTasks {
 		useRuntime := false
@@ -120,7 +93,7 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 			useRuntime = true
 		}
 
-		taskContainerInfo, err := devPack.GetContainer(task)
+		taskContainerInfo, err := devPack.GetTaskContainerInfo(task)
 		if err != nil {
 			glog.V(0).Infof("Error occured while getting the Task Container Info for task " + task.Name)
 			err = errors.New("Error occured while getting the Task Container Info for task " + task.Name + ": " + err.Error())
@@ -177,93 +150,44 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 			"app": BuildTaskInstance.Name,
 		}
 
+		var watchOptions metav1.ListOptions
 		if task.Type == idp.SharedTask {
-
-			// Execute the Shared Tasks in Reusable Containers
-			glog.V(0).Infof("Checking if Reusable Build Container has already been deployed...\n")
-			foundReusableBuildContainer := false
-			timeout := int64(10)
-			watchOptions := metav1.ListOptions{
+			watchOptions = metav1.ListOptions{
 				LabelSelector:  "app=" + BuildTaskInstance.Name,
 				TimeoutSeconds: &timeout,
 			}
-			po, _ := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Reusable Container is up")
-			if po != nil {
-				glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
-				BuildTaskInstance.PodName = po.Name
-				foundReusableBuildContainer = true
+		} else if task.Type == idp.RuntimeTask {
+			watchOptions = metav1.ListOptions{
+				LabelSelector:  "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
+				TimeoutSeconds: &timeout,
 			}
+		}
 
-			if !foundReusableBuildContainer {
-				glog.V(0).Info("===============================")
-				glog.V(0).Info("Creating a pod...")
+		glog.V(0).Infof("Checking if " + task.Type + " Container has already been deployed...\n")
 
-				pod, err := Client.CreatePod(BuildTaskInstance.Name, BuildTaskInstance.ContainerName, BuildTaskInstance.Image, BuildTaskInstance.ServiceAccountName, BuildTaskInstance.Labels, BuildTaskInstance.PVCName, BuildTaskInstance.MountPath, BuildTaskInstance.SubPath, BuildTaskInstance.Privileged)
+		foundTaskContainer := false
+		po, _ := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a "+task.Type+" Container has already been deployed")
+		if po != nil {
+			glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
+			BuildTaskInstance.PodName = po.Name
+			foundTaskContainer = true
+		}
+
+		if !foundTaskContainer {
+			glog.V(0).Info("===============================")
+			glog.V(0).Info("Creating a " + task.Type + " Container")
+
+			if task.Type == idp.SharedTask {
+				s := log.Spinner("Creating pod")
+				defer s.End(false)
+				_, err := Client.CreatePod(BuildTaskInstance.Name, BuildTaskInstance.ContainerName, BuildTaskInstance.Image, BuildTaskInstance.ServiceAccountName, BuildTaskInstance.Labels, BuildTaskInstance.PVCName, BuildTaskInstance.MountPath, BuildTaskInstance.SubPath, BuildTaskInstance.Privileged)
 				if err != nil {
 					glog.V(0).Info("Failed to create a pod: " + err.Error())
 					err = errors.New("Failed to create a pod " + BuildTaskInstance.Name)
 					return err
 				}
-				glog.V(0).Info("Created pod: " + pod.GetName())
-				glog.V(0).Info("===============================")
-				// Wait for pods to start and grab the pod name
-				glog.V(0).Infof("Waiting for pod to run\n")
-				watchOptions := metav1.ListOptions{
-					LabelSelector: "app=" + BuildTaskInstance.Name,
-				}
-				po, err := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Waiting for the Reusable Build Container to run")
-				if err != nil {
-					err = errors.New("The Reusable Build Container failed to run")
-					return err
-				}
-
-				BuildTaskInstance.PodName = po.Name
-			}
-
-			glog.V(0).Infof("The Reusable Build Container Pod Name: %s\n", BuildTaskInstance.PodName)
-
-			watchOptions = metav1.ListOptions{
-				LabelSelector: "app=" + BuildTaskInstance.Name,
-			}
-			err = syncProjectToRunningContainer(Client, watchOptions, cwd, BuildTaskInstance.SrcDestination)
-			if err != nil {
-				glog.V(0).Infof("Error occured while syncing to the pod %s: %s\n", BuildTaskInstance.PodName, err)
-				err = errors.New("Unable to sync to the pod: " + err.Error())
-				return err
-			}
-
-			err = executetask(Client, strings.Join(BuildTaskInstance.Command, " "), BuildTaskInstance.PodName)
-			if err != nil {
-				glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(task.Command, " "), BuildTaskInstance.PodName, err)
-				err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
-				return err
-			}
-		} else if task.Type == idp.RuntimeTask {
-
-			// Execute the Runtime Tasks in the Component Pod
-			foundRuntimeContainer := false
-			timeout := int64(10)
-			watchOptions := metav1.ListOptions{
-				LabelSelector:  "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
-				TimeoutSeconds: &timeout,
-			}
-			po, _ := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Runtime Container has already been deployed")
-			if po != nil {
-				glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
-				BuildTaskInstance.PodName = po.Name
-				foundRuntimeContainer = true
-			}
-
-			if !foundRuntimeContainer {
-				// Deploy the application if it is a full build type and a running pod is not found
-				glog.V(0).Info("Deploying the application")
-
-				BuildTaskInstance.Labels = map[string]string{
-					"app":     BuildTaskInstance.Name + "-selector",
-					"chart":   BuildTaskInstance.Name + "-1.0.0",
-					"release": BuildTaskInstance.Name,
-				}
-
+				s.End(true)
+			} else if task.Type == idp.RuntimeTask {
 				s := log.Spinner("Creating component")
 				defer s.End(false)
 				if err = BuildTaskInstance.CreateComponent(Client, componentConfig, devPack, cmpPVC); err != nil {
@@ -273,35 +197,103 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 				s.End(true)
 			}
 
-			// Only sync to the Runtime if a Source Mapping is provided
-			if len(srcDestination) > 0 {
-				watchOptions = metav1.ListOptions{
-					LabelSelector: "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
-				}
-				err = syncProjectToRunningContainer(Client, watchOptions, cwd, BuildTaskInstance.SrcDestination)
-				if err != nil {
-					glog.V(0).Infof("Error occured while syncing to the pod %s: %s\n", BuildTaskInstance.PodName, err)
-					err = errors.New("Unable to sync to the pod: " + err.Error())
-					return err
-				}
-			}
+			glog.V(0).Info("Successfully created a " + task.Type + " Container")
+			glog.V(0).Info("===============================")
+		}
 
-			// Only execute tasks commands in Runtime if commands are provided
-			if len(BuildTaskInstance.Command) > 0 {
-				po, _ = Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if the Runtime Container is up before executing the Runtime Tasks")
-				if po != nil {
-					glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
-					BuildTaskInstance.PodName = po.Name
-
-					err = executetask(Client, strings.Join(task.Command, " "), BuildTaskInstance.PodName)
-					if err != nil {
-						glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(BuildTaskInstance.Command, " "), BuildTaskInstance.PodName, err)
-						err = errors.New("Unable to exec command " + strings.Join(task.Command, " ") + " in the runtime container: " + err.Error())
-						return err
-					}
-				}
+		// Only sync to the Runtime if a Source Mapping is provided
+		if len(srcDestination) > 0 {
+			err = syncProjectToRunningContainer(Client, watchOptions, cwd, BuildTaskInstance.SrcDestination)
+			if err != nil {
+				glog.V(0).Infof("Error occured while syncing to the %s Container: %s\n", task.Type, err)
+				err = errors.New("Unable to sync to the pod: " + err.Error())
+				return err
 			}
 		}
+
+		// Only execute tasks commands in Runtime if commands are provided
+		if len(BuildTaskInstance.Command) > 0 {
+			err = executetask(Client, strings.Join(BuildTaskInstance.Command, " "), watchOptions)
+			if err != nil {
+				glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(BuildTaskInstance.Command, " "), BuildTaskInstance.PodName, err)
+				err = errors.New("Unable to exec command " + strings.Join(BuildTaskInstance.Command, " ") + " in the runtime container: " + err.Error())
+				return err
+			}
+		}
+	}
+
+	// Finally, check if the Component has been deployed and start one
+	// if absent. Because, there can be a IDP task without a Runtime type
+	glog.V(0).Infof("Checking if the Component has already been deployed...\n")
+
+	var taskContainerInfo idp.TaskContainerInfo
+	var containerName, containerImage, trimmedNamespacedKubernetesObject, srcDestination string
+	var pvcClaimName, mountPath, subPath []string
+	var cmpPVC []*corev1.PersistentVolumeClaim
+	var BuildTaskInstance BuildTask
+
+	foundComponent := false
+	watchOptions := metav1.ListOptions{
+		LabelSelector:  "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
+		TimeoutSeconds: &timeout,
+	}
+	po, _ := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Component has already been deployed")
+	if po != nil {
+		glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
+		BuildTaskInstance.PodName = po.Name
+		foundComponent = true
+	}
+
+	if !foundComponent {
+		taskContainerInfo = devPack.GetRuntimeInfo()
+
+		if len(namespacedKubernetesObject) > 40 {
+			trimmedNamespacedKubernetesObject = namespacedKubernetesObject[:40]
+		} else {
+			trimmedNamespacedKubernetesObject = namespacedKubernetesObject
+		}
+		containerImage = taskContainerInfo.Image
+		containerName = trimmedNamespacedKubernetesObject + "-runtime"
+
+		for _, vm := range taskContainerInfo.VolumeMappings {
+			cmpPVC = append(cmpPVC, idpPVC[vm.VolumeName])
+			pvcClaimName = append(pvcClaimName, idpPVC[vm.VolumeName].Name)
+			mountPath = append(mountPath, vm.ContainerPath)
+			subPath = append(subPath, vm.SubPath)
+		}
+
+		BuildTaskInstance = BuildTask{
+			UseRuntime:         true,
+			Name:               containerName,
+			Image:              containerImage,
+			ContainerName:      containerName,
+			Namespace:          namespace,
+			PVCName:            pvcClaimName,
+			ServiceAccountName: serviceAccountName,
+			// OwnerReferenceName: ownerReferenceName,
+			// OwnerReferenceUID:  ownerReferenceUID,
+			Privileged:     true,
+			MountPath:      mountPath,
+			SubPath:        subPath,
+			SrcDestination: srcDestination,
+		}
+		BuildTaskInstance.Labels = map[string]string{
+			"app": BuildTaskInstance.Name,
+		}
+
+		glog.V(0).Info("===============================")
+		glog.V(0).Info("Creating the Component")
+
+		s := log.Spinner("Creating component")
+		defer s.End(false)
+		if err = BuildTaskInstance.CreateComponent(Client, componentConfig, devPack, cmpPVC); err != nil {
+			err = errors.New("Unable to create component deployment: " + err.Error())
+			return err
+		}
+		s.End(true)
+
+		glog.V(0).Info("Successfully created the Container")
+		glog.V(0).Info("===============================")
 	}
 
 	return nil

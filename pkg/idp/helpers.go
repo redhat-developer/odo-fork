@@ -39,17 +39,24 @@ func (i *IDP) GetTasks(scenario SpecScenario) []SpecTask {
 	return tasks
 }
 
-// GetContainer returns the container for a given task
-func (i *IDP) GetContainer(task SpecTask) (TaskContainerInfo, error) {
-	// var taskContainer interface{}
+// GetRuntimeInfo returns the container info for the Runtime
+func (i *IDP) GetRuntimeInfo() TaskContainerInfo {
+	taskContainerInfo := TaskContainerInfo{
+		Type:           RuntimeTask,
+		Name:           "",
+		Image:          i.Spec.Runtime.Image,
+		VolumeMappings: i.Spec.Runtime.VolumeMappings,
+	}
+
+	return taskContainerInfo
+}
+
+// GetTaskContainerInfo returns the container for a given task
+func (i *IDP) GetTaskContainerInfo(task SpecTask) (TaskContainerInfo, error) {
 	var taskContainerInfo TaskContainerInfo
 	var err error
 	if task.Type == RuntimeTask {
-		taskContainerInfo.Type = RuntimeTask
-		taskContainerInfo.Name = ""
-		taskContainerInfo.Image = i.Spec.Runtime.Image
-		taskContainerInfo.VolumeMappings = i.Spec.Runtime.VolumeMappings
-		// taskContainer = i.Spec.Runtime
+		taskContainerInfo = i.GetRuntimeInfo()
 	} else {
 		for _, c := range i.Spec.Shared.Containers {
 			if c.Name == task.Container {
@@ -57,7 +64,6 @@ func (i *IDP) GetContainer(task SpecTask) (TaskContainerInfo, error) {
 				taskContainerInfo.Name = c.Name
 				taskContainerInfo.Image = c.Image
 				taskContainerInfo.VolumeMappings = c.VolumeMappings
-				// taskContainer = c
 			}
 		}
 	}
