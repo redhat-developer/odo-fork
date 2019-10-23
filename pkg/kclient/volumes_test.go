@@ -127,9 +127,10 @@ func TestDeletePVC(t *testing.T) {
 
 func TestAddPVCToDeployment(t *testing.T) {
 	type args struct {
-		dep  *appsv1.Deployment
-		pvc  string
-		path string
+		dep     *appsv1.Deployment
+		pvc     string
+		path    string
+		subPath string
 	}
 	labels := map[string]string{
 		"deploymentconfig": "nodejs-app",
@@ -165,8 +166,9 @@ func TestAddPVCToDeployment(t *testing.T) {
 						},
 					},
 				},
-				pvc:  "test volume",
-				path: "/mnt",
+				pvc:     "test volume",
+				path:    "/mnt",
+				subPath: "/subPath",
 			},
 			wantErr: false,
 		},
@@ -183,8 +185,9 @@ func TestAddPVCToDeployment(t *testing.T) {
 						},
 					},
 				},
-				pvc:  "test-voulme",
-				path: "/mnt",
+				pvc:     "test-voulme",
+				path:    "/mnt",
+				subPath: "/subPath",
 			},
 			wantErr: true,
 		},
@@ -194,7 +197,7 @@ func TestAddPVCToDeployment(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeClient, _ := FakeNew()
 
-			err := fakeClient.AddPVCToDeployment(tt.args.dep, tt.args.pvc, tt.args.path)
+			err := fakeClient.AddPVCToDeployment(tt.args.dep, tt.args.pvc, tt.args.path, tt.args.subPath)
 
 			// Checks for error in positive cases
 			if !tt.wantErr == (err != nil) {

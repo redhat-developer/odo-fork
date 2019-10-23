@@ -155,13 +155,13 @@ func TestGetContainerForTask(t *testing.T) {
 			testName: "Test get container for valid build task",
 			idp:      buildTaskIDP,
 			task:     buildTaskIDP.Spec.Tasks[0],
-			want:     "idp.SharedContainer",
+			want:     "idp.TaskContainerInfo",
 		},
 		{
 			testName: "Test get container for valid runtime task",
 			idp:      runtimeTaskIDP,
 			task:     runtimeTaskIDP.Spec.Tasks[0],
-			want:     "idp.SpecRuntime",
+			want:     "idp.TaskContainerInfo",
 		},
 		{
 			testName: "Test get container for invalid container reference",
@@ -192,7 +192,7 @@ func TestGetContainerForTask(t *testing.T) {
 		t.Log("Running test: ", tt.testName)
 		t.Run(tt.testName, func(t *testing.T) {
 
-			container, err := tt.idp.GetContainer(tt.task)
+			container, err := tt.idp.GetTaskContainerInfo(tt.task)
 			if tt.wantErr {
 				if err != nil {
 					return
