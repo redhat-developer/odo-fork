@@ -58,7 +58,7 @@ type SpecTask struct {
 	Command          []string      `yaml:"command"`
 	WorkingDirectory string        `yaml:"workingDirectory"`
 	Logs             []Logs        `yaml:"logs"`
-	RepoMappings     []RepoMapping `yaml:"repoMappings"`
+	RepoMappings     []RepoMapping `yaml:"idpRepoMappings"`
 	SourceMapping    SourceMapping `yaml:"sourceMapping"`
 	Env              []EnvVar      `yaml:"env"`
 }

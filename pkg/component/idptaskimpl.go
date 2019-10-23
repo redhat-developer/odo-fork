@@ -2,6 +2,7 @@ package component
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/golang/glog"
@@ -43,6 +44,9 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 	// Get the IDP Tasks
 	var idpTasks []idp.SpecTask
 	idpTasks = devPack.GetTasks(idpScenario)
+
+	// Get the Runtime Ports
+	runtimePorts := devPack.GetPorts()
 
 	// Get the Shared Volumes
 	// This may need to be updated to handle mount and unmount of PVCs,
@@ -86,6 +90,7 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 	glog.V(0).Infof("CWD: %s\n", cwd)
 
 	timeout := int64(10)
+	noTimeout := int64(0)
 
 	for _, task := range idpTasks {
 		useRuntime := false
@@ -161,6 +166,7 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 				LabelSelector:  "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
 				TimeoutSeconds: &timeout,
 			}
+			BuildTaskInstance.Ports = runtimePorts
 		}
 
 		glog.V(0).Infof("Checking if " + task.Type + " Container has already been deployed...\n")
@@ -190,7 +196,7 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 			} else if task.Type == idp.RuntimeTask {
 				s := log.Spinner("Creating component")
 				defer s.End(false)
-				if err = BuildTaskInstance.CreateComponent(Client, componentConfig, devPack, cmpPVC); err != nil {
+				if err = BuildTaskInstance.CreateComponent(Client, componentConfig, cmpPVC); err != nil {
 					err = errors.New("Unable to create component deployment: " + err.Error())
 					return err
 				}
@@ -201,19 +207,38 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 			glog.V(0).Info("===============================")
 		}
 
-		// Only sync to the Runtime if a Source Mapping is provided
+		watchOptions.TimeoutSeconds = &noTimeout
+
+		// Only sync project to the Container if a Source Mapping is provided
 		if len(srcDestination) > 0 {
-			err = syncProjectToRunningContainer(Client, watchOptions, cwd, BuildTaskInstance.SrcDestination)
+			err = syncToRunningContainer(Client, watchOptions, cwd, BuildTaskInstance.SrcDestination, []string{})
 			if err != nil {
-				glog.V(0).Infof("Error occured while syncing to the %s Container: %s\n", task.Type, err)
+				glog.V(0).Infof("Error occured while syncing project to the %s Container: %s\n", task.Type, err)
 				err = errors.New("Unable to sync to the pod: " + err.Error())
 				return err
 			}
 		}
 
+		// Only sync scripts to the Container if a Source Mapping is provided
+		if len(task.RepoMappings) > 0 {
+			for _, rm := range task.RepoMappings {
+				idpYamlDir, _ := filepath.Split(cwd + idp.IDPYamlPath)
+				sourcePath := idpYamlDir + rm.SrcPath
+				destinationPath := rm.DestPath
+				sourceDir, _ := filepath.Split(sourcePath)
+
+				err = syncToRunningContainer(Client, watchOptions, sourceDir, destinationPath, []string{sourcePath})
+				if err != nil {
+					glog.V(0).Infof("Error occured while syncing scripts to the %s Container: %s\n", task.Type, err)
+					err = errors.New("Unable to sync to the pod: " + err.Error())
+					return err
+				}
+			}
+		}
+
 		// Only execute tasks commands in Runtime if commands are provided
 		if len(BuildTaskInstance.Command) > 0 {
-			err = executetask(Client, strings.Join(BuildTaskInstance.Command, " "), watchOptions)
+			err = executetask(Client, BuildTaskInstance.Command, watchOptions)
 			if err != nil {
 				glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(BuildTaskInstance.Command, " "), BuildTaskInstance.PodName, err)
 				err = errors.New("Unable to exec command " + strings.Join(BuildTaskInstance.Command, " ") + " in the runtime container: " + err.Error())
@@ -280,13 +305,14 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 		BuildTaskInstance.Labels = map[string]string{
 			"app": BuildTaskInstance.Name,
 		}
+		BuildTaskInstance.Ports = runtimePorts
 
 		glog.V(0).Info("===============================")
 		glog.V(0).Info("Creating the Component")
 
 		s := log.Spinner("Creating component")
 		defer s.End(false)
-		if err = BuildTaskInstance.CreateComponent(Client, componentConfig, devPack, cmpPVC); err != nil {
+		if err = BuildTaskInstance.CreateComponent(Client, componentConfig, cmpPVC); err != nil {
 			err = errors.New("Unable to create component deployment: " + err.Error())
 			return err
 		}

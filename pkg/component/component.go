@@ -16,7 +16,6 @@ import (
 	componentlabels "github.com/redhat-developer/odo-fork/pkg/component/labels"
 
 	"github.com/redhat-developer/odo-fork/pkg/config"
-	"github.com/redhat-developer/odo-fork/pkg/idp"
 	"github.com/redhat-developer/odo-fork/pkg/kclient"
 	"github.com/redhat-developer/odo-fork/pkg/kdo/util/validation"
 	"github.com/redhat-developer/odo-fork/pkg/log"
@@ -96,6 +95,7 @@ type BuildTask struct {
 	Labels             map[string]string
 	Command            []string
 	SrcDestination     string
+	Ports              []string
 }
 
 // GetDefaultComponentName generates a unique component name
@@ -251,7 +251,7 @@ func GetComponentLinkedSecretNames(client *kclient.Client, componentName string,
 // CreateFromPath create new component with source or binary from the given local path
 // sourceType indicates the source type of the component and can be either local or binary
 // envVars is the array containing the environment variables
-func (b *BuildTask) CreateFromPath(client *kclient.Client, params kclient.CreateArgs, devPack *idp.IDP) error {
+func (b *BuildTask) CreateFromPath(client *kclient.Client, params kclient.CreateArgs) error {
 	labels := componentlabels.GetLabels(params.Name, params.ApplicationName, true)
 
 	// Parse componentImageType before adding to labels
@@ -366,7 +366,7 @@ func Delete(client *kclient.Client, componentName string, applicationName string
 //		stdout: io.Writer instance to write output to
 //	Returns:
 //		err: errors if any
-func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, devPack *idp.IDP, pvc []*corev1.PersistentVolumeClaim) (err error) {
+func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig config.LocalConfigInfo, pvc []*corev1.PersistentVolumeClaim) (err error) {
 
 	cmpName := componentConfig.GetName()
 	// cmpType := componentConfig.GetType()
@@ -380,12 +380,11 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 	// storageToBeMounted, _, err := storage.Push(client, storageList, componentConfig.GetName(), componentConfig.GetApplication(), false)
 
 	// TODO-KDO: remove following line and implement storage handling properly for KDO
-	imgName := devPack.Spec.Runtime.Image
 	log.Successf("Initializing component")
 	createArgs := kclient.CreateArgs{
 		Name: cmpName,
 		// ImageName:          cmpType,
-		ImageName:       imgName,
+		ImageName:       b.Image,
 		ApplicationName: appName,
 		EnvVars:         envVarsList.ToStringSlice(),
 		UseRunTime:      b.UseRuntime,
@@ -405,7 +404,7 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 	if len(cmpPorts) > 0 {
 		createArgs.Ports = cmpPorts
 	} else {
-		createArgs.Ports = devPack.GetPorts()
+		createArgs.Ports = b.Ports
 	}
 
 	createArgs.Resources, err = kclient.GetResourceRequirementsFromCmpSettings(componentConfig)
@@ -439,11 +438,11 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 			return fmt.Errorf("component creation with args %+v as path needs to be a directory", createArgs)
 		}
 		// Create
-		if err = b.CreateFromPath(client, createArgs, devPack); err != nil {
+		if err = b.CreateFromPath(client, createArgs); err != nil {
 			return errors.Wrapf(err, "failed to create component with args %+v", createArgs)
 		}
 	case config.BINARY:
-		if err = b.CreateFromPath(client, createArgs, devPack); err != nil {
+		if err = b.CreateFromPath(client, createArgs); err != nil {
 			return errors.Wrapf(err, "failed to create component with args %+v", createArgs)
 		}
 	default:
@@ -454,7 +453,7 @@ func (b *BuildTask) CreateComponent(client *kclient.Client, componentConfig conf
 			return errors.Wrap(err, "failed to create component with current directory as source for the component")
 		}
 		createArgs.SourcePath = dir
-		if err = b.CreateFromPath(client, createArgs, devPack); err != nil {
+		if err = b.CreateFromPath(client, createArgs); err != nil {
 			return errors.Wrapf(err, "")
 		}
 	}

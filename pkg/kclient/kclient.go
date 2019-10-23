@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -442,25 +443,18 @@ func (c *Client) CreateComponentResources(params CreateArgs, commonObjectMeta me
 		return errors.Wrapf(err, "error adding environment variables to the container")
 	}
 
-	// var containerPorts []corev1.ContainerPort
+	var containerPorts []corev1.ContainerPort
 
-	// for index, port := range params.Ports {
-	// 	portInt, _ := strconv.Atoi(port)
-	// 	containerPort := []corev1.ContainerPort{
-	// 		{
-	// 			ContainerPort: int32(portInt),
-	// 			Name:          "http" + strconv.Itoa(index),
-	// 		},
-	// 	}
-	// 	containerPorts = append(containerPorts, containerPort)
-	// }
-
-	// TODO-KDO: Get port information from component settings
-	containerPorts := []corev1.ContainerPort{
-		{
-			ContainerPort: int32(9080),
-			Name:          "http",
-		},
+	for _, port := range params.Ports {
+		portInt, err := strconv.Atoi(port)
+		if err != nil {
+			return errors.Wrapf(err, "unable to convert port %s to integer", port)
+		}
+		containerPort := corev1.ContainerPort{
+			ContainerPort: int32(portInt),
+			Name:          "port-" + port,
+		}
+		containerPorts = append(containerPorts, containerPort)
 	}
 
 	commonImageMeta := CommonImageMeta{

@@ -13,8 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// SyncProjectToRunningContainer Wait for the Pod to run, create the targetPath in the Pod and sync the project to the targetPath
-func syncProjectToRunningContainer(client *kclient.Client, watchOptions metav1.ListOptions, sourcePath, targetPath string) error {
+// syncToRunningContainer Wait for the Pod to run, create the targetPath in the Pod and sync the project to the targetPath
+func syncToRunningContainer(client *kclient.Client, watchOptions metav1.ListOptions, sourcePath, targetPath string, files []string) error {
 	// Wait for the pod to run
 	glog.V(0).Infof("Waiting for pod to run\n")
 	po, err := client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking if the container is up before syncing")
@@ -38,7 +38,7 @@ func syncProjectToRunningContainer(client *kclient.Client, watchOptions metav1.L
 	}
 
 	// Sync the project to the specified Pod's target path
-	err = client.CopyFile(sourcePath, podName, targetPath, []string{}, []string{})
+	err = client.CopyFile(sourcePath, podName, targetPath, files, []string{})
 	if err != nil {
 		err = errors.New("Unable to copy files to the pod " + podName + ": " + err.Error())
 		return err

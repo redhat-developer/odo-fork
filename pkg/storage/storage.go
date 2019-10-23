@@ -35,10 +35,12 @@ func Create(client *kclient.Client, name string, size string, componentName stri
 	// Namespace the component
 	// We will use name+applicationName instead of componentName+applicationName until:
 	// https://github.com/openshift/odo/issues/504 is resolved.
+	randomChars := util.GenerateRandomString(4)
 	namespaceKubernetesObject, err := util.NamespaceKubernetesObject(name, applicationName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to create namespaced name")
 	}
+	namespaceKubernetesObject = fmt.Sprintf("%v-%v", namespaceKubernetesObject, randomChars)
 
 	labels := storagelabels.GetLabels(name, componentName, applicationName, true)
 

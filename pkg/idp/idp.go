@@ -18,6 +18,7 @@ const (
 	IDPYaml     = "idp.yaml"
 	RuntimeTask = "Runtime"
 	SharedTask  = "Shared"
+	IDPYamlPath = "/.udo/" + IDPYaml
 )
 
 // Get loads in the project's idp.yaml from disk
