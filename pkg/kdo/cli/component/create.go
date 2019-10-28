@@ -476,21 +476,34 @@ func (co *CreateOptions) Run() (err error) {
 
 	// If using the remote IDP repository, pull down the IDP yaml from it
 	if co.localIDPRepo == "" {
-		devPackURL := catalog.DefaultIDPRepo + catalogEntry.Devpack["self"]
-		err = idp.DownloadIDP(devPackURL)
-	} else {
-		// If using a local IDP repo, copy the idp.yaml into the .udo folder
-		parentFolder := filepath.Dir(co.localIDPRepo)
-		devPackPath := filepath.Join(parentFolder, catalogEntry.Devpack["self"])
-		err = idp.CopyLocalIDP(devPackPath)
-
-		// TODO The following copies files from the dev pack folder to the udo folder as a temporary workaround, should remove once it's implemented fully
-		udoDir, err := config.GetUDOFolder("")
-		if err != nil {
-			return fmt.Errorf("unabled to find .udo folder")
+		var artifactsURL []string
+		for _, artifactRelativePath := range catalogEntry.Artifacts {
+			log.Infof("MJF artifact Path: " + artifactRelativePath)
+			artifactsURL = append(artifactsURL, catalog.DefaultIDPRemoteRepo+artifactRelativePath)
 		}
 
-		idp.CopyFolder(parentFolder, udoDir)
+		devPackURL := catalog.DefaultIDPRemoteRepo + catalogEntry.Devpack["self"]
+
+		err = idp.DownloadIDP(devPackURL, artifactsURL)
+	} else {
+		// If using a local IDP repo, copy the idp.yaml into the .udo folder
+		var artifactsPath []string
+		parentFolder := filepath.Dir(co.localIDPRepo)
+		devPackPath := filepath.Join(parentFolder, catalogEntry.Devpack["self"])
+		for _, artifactRelativePath := range catalogEntry.Artifacts {
+			log.Infof("MJF artifact Path: " + artifactRelativePath)
+			artifactsPath = append(artifactsPath, parentFolder+artifactRelativePath)
+		}
+
+		err = idp.CopyLocalIDP(devPackPath, artifactsPath)
+
+		// // TODO The following copies files from the dev pack folder to the udo folder as a temporary workaround, should remove once it's implemented fully
+		// udoDir, err := config.GetUDOFolder("")
+		// if err != nil {
+		// 	return fmt.Errorf("unabled to find .udo folder")
+		// }
+
+		// idp.CopyFolder(parentFolder, udoDir)
 	}
 	if err != nil {
 		return err

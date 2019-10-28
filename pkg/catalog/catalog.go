@@ -13,8 +13,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-const DefaultIDPRepo = "https://raw.githubusercontent.com/johnmcollier/iterative-dev-packs/master"
-const DefaultIDPCatalog = DefaultIDPRepo + "/index.json"
+const DefaultIDPRemoteRepo = "https://raw.githubusercontent.com/maysunfaisal/iterative-dev-packs/master"
+const DefaultIDPCatalog = DefaultIDPRemoteRepo + "/index.json"
 
 // CatalogEntry represents an entry in the index.json file for IDPs
 type CatalogEntry struct {
@@ -23,6 +23,7 @@ type CatalogEntry struct {
 	Language    string            `json:"language"`
 	Framework   string            `json:"framework"`
 	Devpack     map[string]string `json:"devpack"`
+	Artifacts   []string          `json:"artifacts"`
 }
 
 // List lists all the available Iterative-Dev Packs
