@@ -478,7 +478,6 @@ func (co *CreateOptions) Run() (err error) {
 	if co.localIDPRepo == "" {
 		var artifactsURL []string
 		for _, artifactRelativePath := range catalogEntry.Artifacts {
-			log.Infof("MJF artifact Path: " + artifactRelativePath)
 			artifactsURL = append(artifactsURL, catalog.DefaultIDPRemoteRepo+artifactRelativePath)
 		}
 
@@ -491,7 +490,6 @@ func (co *CreateOptions) Run() (err error) {
 		parentFolder := filepath.Dir(co.localIDPRepo)
 		devPackPath := filepath.Join(parentFolder, catalogEntry.Devpack["self"])
 		for _, artifactRelativePath := range catalogEntry.Artifacts {
-			log.Infof("MJF artifact Path: " + artifactRelativePath)
 			artifactsPath = append(artifactsPath, parentFolder+artifactRelativePath)
 		}
 

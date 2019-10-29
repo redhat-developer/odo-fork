@@ -85,7 +85,6 @@ func DownloadIDP(idpURL string, artifactsURL []string) error {
 		idpArtifacts = append(idpArtifacts, artifact)
 	}
 
-	fmt.Println("MJF calling writeToUDOFolder")
 	// Write the idp.yaml and it's artifacts to disk
 	return writeToUDOFolder(idpBytes, idpArtifacts)
 }
