@@ -16,6 +16,9 @@ Change directory to a project root directory and run the following:
     Using a build task IDP
     `udo create spring-buildtasks`
 
+    You can also develop your own IDPs locally and use the `--local-repo` flag with udo to try it out
+    eg. `udo create spring-dev-pack-build-tasks --local-repo /Users/maysun/dev/redhat/idp/spring-idp/index.json`
+
 2. URL create
     `udo url create <ingress domain> --port 8080`
     eg.
@@ -23,3 +26,5 @@ Change directory to a project root directory and run the following:
     
 3. Push    
     `udo push`
+
+    Note: `udo push` can also be used for updates. To force a full build use `udo push --fullBuild`
