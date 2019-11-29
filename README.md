@@ -6,24 +6,57 @@
 
 The poc uses a sample repository of IDPs: https://github.com/maysunfaisal/iterative-dev-packs
 
-### Try out the POC with the following steps:
+### What the POC contains
+1. Catalog  
+   `udo catalog list idp`  
 
-Change directory to a project root directory and run the following:
-1. Create  
-    Using an s2i-like IDP  
-    `udo create spring`
-    or  
-    Using a build task IDP  
-    `udo create spring-buildtasks`  
+2. Create  
+    `udo create <IDP name>`  
 
-    You can also develop your own IDPs locally and use the `--local-repo` flag with udo to try it out  
-    eg. `udo create spring-dev-pack-build-tasks --local-repo /Users/maysun/dev/redhat/idp/spring-idp/index.json`  
-
-2. URL create  
-    `udo url create <ingress domain> --port 8080`  
-    eg. `udo url create myapp.<IP>.nip.io --port 8080`  
+3. URL create  
+    `udo url create myapp.<ingress domain> --port <port>`  
     
-3. Push  
-    `udo push`  
+4. Push  
+    `udo push --fullBuild`  
 
-    Note: `udo push` can also be used for updates. To force a full build use `udo push --fullBuild`  
+    Note: Use `udo push` (without the `--fullBuild`) for updates. `--fullBuild` is a temporary flag for the POC, an actual implementation would have built-in smarts to determine when a full build or update is required.
+
+5. Delete
+   `udo delete`  
+
+### Developing IDPs  
+
+You can develop your own IDPs locally using the `--local-repo` flag with udo.
+
+1. Clone https://github.com/maysunfaisal/iterative-dev-packs  
+2. Use the local version of the IDP  
+   `udo create spring-dev-pack-build-tasks --local-repo /Users/maysun/dev/redhat/idp/spring-idp/index.json`  
+
+### Try out the POC with these samples:  
+
+#### Spring
+
+1. Clone  
+   https://github.com/spring-projects/spring-petclinic
+
+2. Create
+   - `udo create spring`  
+   - `udo url create <ingress domain> --port 8080`  
+   - `udo push --fullBuild`  
+
+3. Update
+   - `udo push`  
+
+#### Microprofile
+
+1. Clone  
+   https://github.com/rajivnathan/microproj
+
+2. Create  
+   - `udo create microprofile`  
+   - `udo url create <ingress domain> --port 9080`  
+   - `udo push --fullBuild`  
+
+3. Update
+   - `udo push`  
+
