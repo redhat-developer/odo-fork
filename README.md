@@ -60,3 +60,15 @@ You can develop your own IDPs locally using the `--local-repo` flag with udo.
 3. Update
    - `udo push`  
 
+#### NodeJS
+
+1. Clone  
+   https://github.com/openshift/nodejs-ex
+
+2. Create  
+   - `udo create nodejs`  
+   - `udo url create <ingress domain> --port 8080`  
+   - `udo push --fullBuild`  
+
+3. Update
+   - `udo push`  
