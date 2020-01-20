@@ -1,9 +1,17 @@
 ## UDO POC
 
 ### Current limitations:
-- Spring project types only
 - A RWX PV is currently required. We're working on RWO
 
+### Prereqs
+May require privileged and root containers depending on the selected IDP.
+
+If your cluster is running OpenShift, run the following commands where <namespace> is the namespace you'll be using for the component:
+
+    To enable privileged containers, enter oc adm policy add-scc-to-group privileged system:serviceaccounts:<namespace>.
+    To enable containers to run as root, enter oc adm policy add-scc-to-group anyuid system:serviceaccounts:<namespace>.
+
+### IDP repository
 The poc uses a sample repository of IDPs: https://github.com/maysunfaisal/iterative-dev-packs
 
 ### What the POC contains
