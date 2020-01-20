@@ -1,9 +1,9 @@
 ## UDO POC
 
-### Current limitations:
+### Current limitations  
 - A RWX PV is currently required. We're working on RWO
 
-### Prereqs
+### Prereqs  
 May require privileged and root containers depending on the selected IDP.
 
 If your cluster is running OpenShift, run the following commands where <namespace> is the namespace you'll be using for the component:
@@ -11,10 +11,10 @@ If your cluster is running OpenShift, run the following commands where <namespac
     To enable privileged containers, enter oc adm policy add-scc-to-group privileged system:serviceaccounts:<namespace>.
     To enable containers to run as root, enter oc adm policy add-scc-to-group anyuid system:serviceaccounts:<namespace>.
 
-### IDP repository
+### IDP repository  
 The poc uses a sample repository of IDPs: https://github.com/maysunfaisal/iterative-dev-packs
 
-### What the POC contains
+### What the POC contains  
 1. Catalog  
    `udo catalog list idp`  
 
@@ -36,13 +36,15 @@ The poc uses a sample repository of IDPs: https://github.com/maysunfaisal/iterat
 
 You can develop your own IDPs locally using the `--local-repo` flag with udo.
 
-1. Clone https://github.com/maysunfaisal/iterative-dev-packs  
-2. Use the local version of the IDP  
+1. Clone https://github.com/maysunfaisal/iterative-dev-packs 
+2. Create a subfolder for your new IDP
+3. Update the index.json to include the new IDP 
+4. Use the `--local-repo` flag to use your updated index.json 
    `udo create spring-dev-pack-build-tasks --local-repo /Users/maysun/dev/redhat/idp/spring-idp/index.json`  
 
-### Try out the POC with these samples:  
+### Try out the POC with these samples  
 
-#### Spring
+#### Spring  
 
 1. Clone  
    https://github.com/spring-projects/spring-petclinic
@@ -55,7 +57,7 @@ You can develop your own IDPs locally using the `--local-repo` flag with udo.
 3. Update
    - `udo push`  
 
-#### Microprofile
+#### Microprofile  
 
 1. Clone  
    https://github.com/rajivnathan/microproj
@@ -68,7 +70,7 @@ You can develop your own IDPs locally using the `--local-repo` flag with udo.
 3. Update
    - `udo push`  
 
-#### NodeJS
+#### NodeJS  
 
 1. Clone  
    https://github.com/openshift/nodejs-ex
