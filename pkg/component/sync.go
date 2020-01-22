@@ -28,8 +28,15 @@ func syncToRunningContainer(client *kclient.Client, watchOptions metav1.ListOpti
 	s := log.Spinner("Syncing project to the pod " + podName)
 	defer s.End(false)
 
+	glog.V(0).Info("Deleting and recreating " + targetPath)
 	// Before Syncing, create the destination directory in the Build Container
-	command := []string{"/bin/sh", "-c", "rm -rf " + targetPath + " && mkdir -p " + targetPath}
+	command := []string{"/bin/sh", "-c", "rm -rf " + targetPath}
+	err = client.ExecCMDInContainer(podName, "", command, os.Stdout, os.Stdout, nil, false)
+	if err != nil {
+		glog.V(0).Infof("Unable to delete %s using command %s in the pod %s: %s\n", targetPath, strings.Join(command, " "), podName, err)
+	}
+
+	command = []string{"/bin/sh", "-c", "mkdir -p " + targetPath}
 	err = client.ExecCMDInContainer(podName, "", command, os.Stdout, os.Stdout, nil, false)
 	if err != nil {
 		glog.V(0).Infof("Error occured while executing command %s in the pod %s: %s\n", strings.Join(command, " "), podName, err)

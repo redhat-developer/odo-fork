@@ -219,7 +219,7 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 			}
 		}
 
-		// Only sync scripts to the Container if a Source Mapping is provided
+		// Only sync scripts to the Container if a Repo Mapping is provided
 		if len(task.RepoMappings) > 0 {
 			for _, rm := range task.RepoMappings {
 				idpYamlDir, _ := filepath.Split(cwd + idp.IDPYamlPath)
