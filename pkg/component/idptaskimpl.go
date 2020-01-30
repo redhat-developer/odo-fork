@@ -26,11 +26,30 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 	// Namespace the component
 	namespacedKubernetesObject, err := util.NamespaceKubernetesObject(cmpName, appName)
 
+	timeout := int64(10)
+	noTimeout := int64(0)
+
+	// watchOptionsComponentPod helps you find the component pod using the labels for a defined timeout
+	watchOptionsComponentPod := metav1.ListOptions{
+		LabelSelector:  "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
+		TimeoutSeconds: &timeout,
+	}
+
 	glog.V(0).Infof("Namespace: %s\n", namespace)
+
+	// Attempt to get the Runtime Pod and determine if its a full build only if the fullBuild was not passed with push
+	foundComponent := false
+	if !fullBuild {
+		po, _ := Client.WaitAndGetPod(watchOptionsComponentPod, corev1.PodRunning, "Checking to see if udo push requires a full build")
+		if po != nil {
+			glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
+			foundComponent = true
+		}
+	}
 
 	// Get the IDP Scenario
 	var idpScenario idp.SpecScenario
-	if fullBuild {
+	if fullBuild || !foundComponent {
 		idpScenario, err = devPack.GetScenario("full-build")
 	} else {
 		idpScenario, err = devPack.GetScenario("incremental-build")
@@ -88,9 +107,6 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 		return err
 	}
 	glog.V(0).Infof("CWD: %s\n", cwd)
-
-	timeout := int64(10)
-	noTimeout := int64(0)
 
 	for _, task := range idpTasks {
 		useRuntime := false
@@ -162,10 +178,7 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 				TimeoutSeconds: &timeout,
 			}
 		} else if task.Type == idp.RuntimeTask {
-			watchOptions = metav1.ListOptions{
-				LabelSelector:  "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
-				TimeoutSeconds: &timeout,
-			}
+			watchOptions = watchOptionsComponentPod
 			BuildTaskInstance.Ports = runtimePorts
 		}
 
@@ -257,12 +270,8 @@ func TaskExec(Client *kclient.Client, componentConfig config.LocalConfigInfo, fu
 	var cmpPVC []*corev1.PersistentVolumeClaim
 	var BuildTaskInstance BuildTask
 
-	foundComponent := false
-	watchOptions := metav1.ListOptions{
-		LabelSelector:  "app=" + namespacedKubernetesObject + ",deployment=" + namespacedKubernetesObject,
-		TimeoutSeconds: &timeout,
-	}
-	po, _ := Client.WaitAndGetPod(watchOptions, corev1.PodRunning, "Checking to see if a Component has already been deployed")
+	foundComponent = false
+	po, _ := Client.WaitAndGetPod(watchOptionsComponentPod, corev1.PodRunning, "Checking to see if a Component has already been deployed")
 	if po != nil {
 		glog.V(0).Infof("Running pod found: %s...\n\n", po.Name)
 		BuildTaskInstance.PodName = po.Name
