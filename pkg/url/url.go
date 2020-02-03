@@ -1,8 +1,12 @@
 package url
 
 import (
+	"bytes"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	applabels "github.com/redhat-developer/odo-fork/pkg/application/labels"
@@ -15,6 +19,11 @@ import (
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 )
 
 // Get returns URL defination for given URL name
@@ -52,7 +61,7 @@ func Delete(client *kclient.Client, urlName string, applicationName string) erro
 
 // Create creates a URL and returns url string and error if any
 // portNumber is the target port number for the ingress and is -1 in case no port number is specified in which case it is automatically detected for components which expose only one service port)
-func Create(client *kclient.Client, urlName string, portNumber int, ingressDomain string, componentName, applicationName string) (string, error) {
+func Create(client *kclient.Client, urlName string, portNumber int, ingressDomain string, https bool, componentName string, applicationName string) (string, error) {
 	labels := urlLabels.GetLabels(urlName, componentName, applicationName, false)
 	serviceName, err := util.NamespaceKubernetesObject(componentName, applicationName)
 	if err != nil {
@@ -63,8 +72,58 @@ func Create(client *kclient.Client, urlName string, portNumber int, ingressDomai
 	if err != nil {
 		return "", errors.Wrapf(err, "unable to create namespaced name")
 	}
+	secretName := ""
+	if https == true {
+		// generate SSl certificate
+		fmt.Printf("Https is true, creating SSL certificate.")
+		privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			fmt.Printf("unale to generate rsa key ")
+			fmt.Println(errors.Cause(err))
+			return "", errors.Wrap(err, "unable to generate rsa key")
+		}
+		template := x509.Certificate{
+			SerialNumber: big.NewInt(1),
+			Subject: pkix.Name{
+				CommonName:   "Udo self-signed certificate",
+				Organization: []string{"Udo"},
+			},
+			NotBefore:             time.Now(),
+			NotAfter:              time.Now().Add(time.Hour * 24 * 365),
+			KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			BasicConstraintsValid: true,
+		}
+
+		certificateDerEncoding, err := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+		if err != nil {
+			fmt.Printf("unable to create certificate ")
+			fmt.Println(errors.Cause(err))
+			return "", errors.Wrap(err, "unable to create certificate")
+		}
+		out := &bytes.Buffer{}
+		pem.Encode(out, &pem.Block{Type: "CERTIFICATE", Bytes: certificateDerEncoding})
+		certPemEncode := out.String()
+		certPemByteArr := []byte(certPemEncode)
+
+		tlsPrivKeyEncoding := x509.MarshalPKCS1PrivateKey(privateKey)
+		pem.Encode(out, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: tlsPrivKeyEncoding})
+		keyPemEncode := out.String()
+		keyPemByteArr := []byte(keyPemEncode)
+
+		// create tls secret
+		secret, err := client.CreateTLSSecret(certPemByteArr, keyPemByteArr, componentName, applicationName, portNumber)
+		if err != nil {
+			fmt.Printf("unable to create tls secret ")
+			fmt.Println(errors.Cause(err))
+			return "", errors.Wrap(err, "unable to create tls secret: "+secret.Name)
+		}
+		secretName = secret.Name
+
+	}
+	ingressParam := kclient.IngressParamater{urlName, serviceName, ingressDomain, intstr.FromInt(portNumber), secretName}
 	// Pass in the namespace name, link to the service (componentName) and labels to create a ingress
-	ingress, err := client.CreateIngress(urlName, serviceName, ingressDomain, intstr.FromInt(portNumber), labels)
+	ingress, err := client.CreateIngress(ingressParam, labels)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to create ingress")
 	}

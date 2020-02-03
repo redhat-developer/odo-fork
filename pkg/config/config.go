@@ -79,8 +79,9 @@ type ConfigUrl struct {
 	// Name of the URL
 	Name string `yaml:"Name,omitempty"`
 	// Port number for the url of the component, required in case of components which expose more than one service port
-	Port int    `yaml:"Port,omitempty"`
-	Host string `yaml:"Host,omitempty"`
+	Port  int    `yaml:"Port,omitempty"`
+	Host  string `yaml:"Host,omitempty"`
+	Https bool   `yaml:"Https,omitempty"`
 }
 
 // ConfigIngress holds Ingress related information

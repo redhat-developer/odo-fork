@@ -29,9 +29,7 @@ var (
   
 	# Create a URL by automatic detection of port (only for components which expose only one service port) 
 	%[1]s ingressDomain
-  
-	# Create a URL with a specific name and port for component frontend
-	%[1]s example --port 8080 --component frontend
+
 	  `)
 )
 
@@ -41,6 +39,7 @@ type URLCreateOptions struct {
 	componentContext string
 	urlName          string
 	urlPort          int
+	https            bool
 	ingressDomain    string
 	componentPort    int
 	*genericclioptions.Context
@@ -59,7 +58,6 @@ func (o *URLCreateOptions) Complete(name string, cmd *cobra.Command, args []stri
 	if err != nil {
 		return err
 	}
-	// o.urlName = url.GetURLName(o.Component(), o.componentPort)
 	o.urlName = o.Component()
 	o.ingressDomain = args[0]
 	o.localConfigInfo, err = config.NewLocalConfigInfo(o.componentContext)
@@ -91,7 +89,7 @@ func (o *URLCreateOptions) Validate() (err error) {
 
 // Run contains the logic for the odo url create command
 func (o *URLCreateOptions) Run() (err error) {
-	err = o.localConfigInfo.SetConfiguration("url", config.ConfigUrl{Name: o.urlName, Port: o.urlPort, Host: o.ingressDomain})
+	err = o.localConfigInfo.SetConfiguration("url", config.ConfigUrl{Name: o.urlName, Port: o.urlPort, Host: o.ingressDomain, Https: o.https})
 	if err != nil {
 		return errors.Wrapf(err, "failed to persist the component settings to config file")
 	}
@@ -108,12 +106,13 @@ func NewCmdURLCreate(name, fullName string) *cobra.Command {
 		Short:   urlCreateShortDesc,
 		Long:    urlCreateLongDesc,
 		Example: fmt.Sprintf(urlCreateExample, fullName),
-		Args:    cobra.MaximumNArgs(1),
+		Args:    cobra.MaximumNArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
 			genericclioptions.GenericRun(o, cmd, args)
 		},
 	}
 	urlCreateCmd.Flags().IntVarP(&o.urlPort, "port", "", -1, "port number for the url of the component, required in case of components which expose more than one service port")
+	urlCreateCmd.Flags().BoolVarP(&o.https, "https", "", false, "set the value to true if want to enable tls for the ingress")
 	// _ = urlCreateCmd.MarkFlagRequired("port")
 	genericclioptions.AddOutputFlag(urlCreateCmd)
 	genericclioptions.AddContextFlag(urlCreateCmd, &o.componentContext)
